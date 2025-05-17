@@ -10,3 +10,7 @@ from gui.quantum_gui import main as gui_main
 
 if __name__ == "__main__":
     gui_main()
+
+# Comando para ejecutar Gunicorn
+
+# gunicorn webapp:app
