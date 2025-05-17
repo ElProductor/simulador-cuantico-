@@ -1,0 +1,6 @@
+core
+gates
+interpreter
+main
+microbin
+tlang
