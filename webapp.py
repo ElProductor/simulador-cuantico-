@@ -307,7 +307,10 @@ def visualization_panel():
             <label>Resaltar qubit:</label>
             <select name='highlight_qubit'>
                 <option value=''>--Qubit--</option>
-                {''.join(f'<option value="{q}" {'selected' if q==selected else ''}>{q}</option>' for q in qubit_names)}
+                {''.join(
+                    f'<option value="{q}"{" selected" if q==selected else ""}>{q}</option>'
+                    for q in qubit_names
+                )}
             </select>
             <button type='submit'>Resaltar</button>
         </form>
