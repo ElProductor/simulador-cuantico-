@@ -277,17 +277,17 @@ def qubits_panel():
           <div class='card shadow'>
             <div class='card-body'>
               <h2 class='card-title'><i class='bi bi-gear'></i> Panel de Qubits</h2>
-              <form method='post' class='mb-3'>
-                <label class='form-label'>Nombre del qubit: <i class='bi bi-question-circle' data-bs-toggle='tooltip' title='Elige un nombre único para tu qubit.'></i></label>
-                <input type='text' name='qubit_name' class='form-control mb-2' required>
+              <form method='post' class='mb-3' autocomplete='off'>
+                <label class='form-label'>Nombre del qubit: <i class='bi bi-question-circle' data-bs-toggle='tooltip' title='Elige un nombre único para tu qubit. Puedes usar letras, números y guiones bajos. Ejemplo: q0, qubit1, ancilla.' tabindex='0' aria-label='Ayuda sobre nombre de qubit'></i></label>
+                <input type='text' name='qubit_name' class='form-control mb-2' required aria-label='Nombre del qubit'>
                 <button type='submit' class='btn btn-primary'><i class='bi bi-plus-circle'></i> Crear Qubit</button>
               </form>
               {alert}
               <h5>Qubits activos:</h5>
               <div>{qubit_table}</div>
               <form method='post' class='mb-2'>
-                <label class='form-label'>Eliminar qubit: <i class='bi bi-question-circle' data-bs-toggle='tooltip' title='Selecciona un qubit para eliminarlo.'></i></label>
-                <select name='delete_qubit' class='form-select mb-2'>
+                <label class='form-label'>Eliminar qubit: <i class='bi bi-question-circle' data-bs-toggle='tooltip' title='Selecciona un qubit para eliminarlo. Esta acción es irreversible.' tabindex='0' aria-label='Ayuda sobre eliminar qubit'></i></label>
+                <select name='delete_qubit' class='form-select mb-2' aria-label='Seleccionar qubit a eliminar'>
                   <option value=''>--Selecciona--</option>
                   {''.join(f'<option value="{q}">{q}</option>' for q in qubit_list)}
                 </select>
@@ -300,8 +300,8 @@ def qubits_panel():
         <div class='col-md-6'>
           <div class='card shadow'>
             <div class='card-body'>
-              <h5>Operaciones y Visualización</h5>
-              {gate_form}
+              <h5>Operaciones y Visualización <i class='bi bi-question-circle' data-bs-toggle='tooltip' title='Aquí puedes aplicar puertas, ver la esfera de Bloch, amplitudes, probabilidades y métricas avanzadas.' tabindex='0' aria-label='Ayuda sobre operaciones y visualización'></i></h5>
+              <div id='qubit-feedback' aria-live='polite'>{gate_form}</div>
               {bloch_form}
               {prob_amp_form}
               {metrics_form}
@@ -310,6 +310,26 @@ def qubits_panel():
         </div>
       </div>
     </div>
+    <script>
+    // Microinteracción: loading spinner al crear/eliminar qubit
+    document.querySelectorAll('form').forEach(function(form) {{
+      form.addEventListener('submit', function(e) {{
+        if (form.querySelector('input[name="qubit_name"]') || form.querySelector('select[name="delete_qubit"]')) {{
+          var feedback = document.getElementById('qubit-feedback');
+          if (feedback) {{
+            feedback.innerHTML = '<div style="text-align:center;"><div class="spinner-border text-primary" role="status" aria-label="Procesando..."></div><div class="mt-2">Procesando...</div></div>';
+          }}
+        }}
+      }});
+    }});
+    // Accesibilidad: enfocar feedback tras acción
+    window.addEventListener('DOMContentLoaded', function() {{
+      var feedback = document.getElementById('qubit-feedback');
+      if (feedback && feedback.textContent.trim().length > 0) {{
+        if (feedback.focus) feedback.focus();
+      }}
+    }});
+    </script>
     """ + TOOLTIP_SCRIPT + FOOTER + FEEDBACK_BUTTON
     )
 
@@ -471,15 +491,15 @@ def circuit_panel():
             <div class='card-body'>
               <h2 class='card-title'><i class='bi bi-diagram-3'></i> Panel de Circuito Cuántico</h2>
               <p>Construye y visualiza tu circuito cuántico aquí. Usa los controles para personalizar la visualización y exportar tu circuito.</p>
-              <div class='feedback'>{msg}</div>
+              <div class='feedback' id='circuit-feedback' aria-live='polite'>{msg}</div>
               {add_gate_form}
               {reset_form}
-              <h5>Operaciones actuales:</h5>
+              <h5>Operaciones actuales: <i class='bi bi-question-circle' data-bs-toggle='tooltip' title='Lista de puertas aplicadas al circuito. Puedes deshacer o reiniciar.' tabindex='0' aria-label='Ayuda sobre operaciones actuales'></i></h5>
               <div class='table-responsive'>{ops_html}</div>
-              <h5>Controles de visualización y exportación:</h5>
+              <h5>Controles de visualización y exportación: <i class='bi bi-question-circle' data-bs-toggle='tooltip' title='Ajusta el zoom, cambia el estilo visual o exporta tu circuito en varios formatos.' tabindex='0' aria-label='Ayuda sobre controles de visualización'></i></h5>
               {controls_form}
               <h5>Visualización del circuito:</h5>
-              {img_html}
+              <div id='circuit-img-area'>{img_html}</div>
               {export_html}
               <div class='mt-3'>
                 <span class='badge bg-info'>Tip:</span> <span>Haz zoom, cambia el estilo o exporta tu circuito para usarlo en otros simuladores.</span>
@@ -489,6 +509,36 @@ def circuit_panel():
         </div>
       </div>
     </div>
+    <script>
+    // Microinteracción: loading spinner al actualizar vista o exportar
+    document.querySelectorAll('form').forEach(function(form) {{
+      form.addEventListener('submit', function(e) {{
+        if (
+          form.querySelector('input[name="zoom"]') ||
+          form.querySelector('select[name="style"]') ||
+          form.querySelector('button[name="action"][value="export_img"]') ||
+          form.querySelector('button[name="action"][value="export_qasm"]') ||
+          form.querySelector('button[name="action"][value="export_qiskit"]')
+        ) {{
+          var feedback = document.getElementById('circuit-feedback');
+          if (feedback) {{
+            feedback.innerHTML = '<div style="text-align:center;"><div class="spinner-border text-primary" role="status" aria-label="Procesando..."></div><div class="mt-2">Procesando...</div></div>';
+          }}
+          var imgArea = document.getElementById('circuit-img-area');
+          if (imgArea) {{
+            imgArea.innerHTML = '<div style="text-align:center;"><div class="spinner-border text-info" role="status" aria-label="Cargando visualización..." style="width:3rem;height:3rem;"></div><div class="mt-2">Cargando visualización...</div></div>';
+          }}
+        }}
+      }});
+    }});
+    // Accesibilidad: enfocar feedback tras acción
+    window.addEventListener('DOMContentLoaded', function() {{
+      var feedback = document.getElementById('circuit-feedback');
+      if (feedback && feedback.textContent.trim().length > 0) {{
+        if (feedback.focus) feedback.focus();
+      }}
+    }});
+    </script>
     """ + TOOLTIP_SCRIPT + FOOTER + FEEDBACK_BUTTON
     )
 
@@ -617,12 +667,36 @@ def visualization_panel():
             <div class='card-body'>
               <h2 class='card-title'><i class='bi bi-bar-chart'></i> Panel de Visualización</h2>
               <p>Visualiza el estado cuántico (esfera de Bloch, matriz de densidad global, coherencia, etc.).</p>
+              <div id='visualization-feedback' aria-live='polite'></div>
               {html}
             </div>
           </div>
         </div>
       </div>
     </div>
+    <script>
+    // Microinteracción: loading spinner al resaltar qubit o descargar imagen
+    document.querySelectorAll('form').forEach(function(form) {{
+      form.addEventListener('submit', function(e) {{
+        if (
+          form.querySelector('select[name="highlight_qubit"]') ||
+          form.querySelector('button[type="submit"][class*="btn-primary"]')
+        ) {{
+          var feedback = document.getElementById('visualization-feedback');
+          if (feedback) {{
+            feedback.innerHTML = '<div style="text-align:center;"><div class="spinner-border text-primary" role="status" aria-label="Procesando..."></div><div class="mt-2">Procesando...</div></div>';
+          }}
+        }}
+      }});
+    }});
+    // Accesibilidad: enfocar feedback tras acción
+    window.addEventListener('DOMContentLoaded', function() {{
+      var feedback = document.getElementById('visualization-feedback');
+      if (feedback && feedback.textContent.trim().length > 0) {{
+        if (feedback.focus) feedback.focus();
+      }}
+    }});
+    </script>
     """ + FOOTER + FEEDBACK_BUTTON
     )
 
@@ -717,7 +791,7 @@ def simulate_panel():
               <form method='post' class='mb-3'>
                 <button type='submit' class='btn btn-success'><i class='bi bi-play'></i> Ejecutar Simulación</button>
               </form>
-              <div class='feedback'>{msg}</div>
+              <div class='feedback' id='simulate-feedback' aria-live='polite'>{msg}</div>
               {result_html}
               {download_form}
               {download_hist_form}
@@ -726,6 +800,26 @@ def simulate_panel():
         </div>
       </div>
     </div>
+    <script>
+    // Microinteracción: loading spinner al simular
+    document.querySelectorAll('form').forEach(function(form) {{
+      form.addEventListener('submit', function(e) {{
+        if (form.querySelector('button[type="submit"][class*="btn-success"]')) {{
+          var feedback = document.getElementById('simulate-feedback');
+          if (feedback) {{
+            feedback.innerHTML = '<div style="text-align:center;"><div class="spinner-border text-success" role="status" aria-label="Simulando..."></div><div class="mt-2">Simulando...</div></div>';
+          }}
+        }}
+      }});
+    }});
+    // Accesibilidad: enfocar feedback tras acción
+    window.addEventListener('DOMContentLoaded', function() {{
+      var feedback = document.getElementById('simulate-feedback');
+      if (feedback && feedback.textContent.trim().length > 0) {{
+        if (feedback.focus) feedback.focus();
+      }}
+    }});
+    </script>
     """ + FOOTER + FEEDBACK_BUTTON
     )
 
@@ -909,185 +1003,6 @@ def qubit_metrics():
         </div>
       </div>
     </div>
-    <form method='post' action='/download_csv' style='margin-top:10px;'>
-        <input type='hidden' name='csv_data' value='{csv_data}'>
-        <input type='hidden' name='csv_name' value='metricas_{qubit_name}.csv'>
-        <button type='submit' class='btn btn-primary'><i class='bi bi-download'></i> Descargar CSV</button>
-    </form>
-    """
-    return info
-
-# Endpoint para feedback visual
-@app.route('/feedback', methods=['POST'])
-def feedback():
-    # Aquí podrías guardar el feedback en un archivo, base de datos o enviarlo por email
-    # Por ahora solo muestra un mensaje de agradecimiento
-    return render_template_string(
-        BOOTSTRAP_HEAD +
-        build_navbar() +
-        """
-        <div class='container fade-in'>
-          <div class='row'>
-            <div class='col-md-8 offset-md-2'>
-              <div class='alert alert-success mt-5'>¡Gracias por tu feedback! <a href='/' class='btn btn-link'>Volver al inicio</a></div>
-            </div>
-          </div>
-        </div>
-        """ + FOOTER
-    )
-
-@app.route('/download_csv', methods=['POST'])
-def download_csv():
-    from flask import Response
-    import base64
-    csv_data = request.form.get('csv_data', '')
-    csv_name = request.form.get('csv_name', 'simulacion_resultados.csv')
-    csv_bytes = base64.b64decode(csv_data)
-    return Response(
-        csv_bytes,
-        mimetype='text/csv',
-        headers={'Content-Disposition': f'attachment;filename={csv_name}'}
-    )
-
-@app.route('/metrics')
-def metrics_panel():
-    from interpreter.qlang_interpreter import qubits
-    import numpy as np
-    import matplotlib.pyplot as plt
-    import io
-    import base64
-    qubit_names = list(qubits.keys())
-    html = ""
-    if len(qubit_names) < 2:
-        html = "<i>Se requieren al menos dos qubits para métricas globales.</i>"
-        return render_template_string(
-            BOOTSTRAP_HEAD +
-            build_navbar(active='metrics') +
-            f"""
-        <div class='container fade-in'>
-          <div class='row'>
-            <div class='col-md-10 offset-md-1'>
-              <div class='card shadow'>
-                <div class='card-body'>
-                  <h2 class='card-title'><i class='bi bi-graph-up'></i> Métricas Avanzadas y Diagnóstico</h2>
-                  <p>Panel global de métricas cuánticas, diagnóstico y recomendaciones para tu sistema.</p>
-                  {html}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        """ + FOOTER + FEEDBACK_BUTTON
-        )
-    # Estado global
-    states = [qubits[q].state for q in qubit_names]
-    state = states[0]
-    for s in states[1:]:
-        state = np.kron(state, s)
-    rho = np.outer(state, state.conj())
-    # Métricas globales
-    coherence = np.sum(np.abs(rho - np.diag(np.diag(rho))))
-    purity = np.trace(rho @ rho).real
-    eigs = np.linalg.eigvalsh(rho)
-    entropy = -sum(e*np.log2(e) for e in eigs if e > 1e-10)
-    # Entrelazamiento simple
-    entangled_pairs = set()
-    for q in qubit_names:
-        ent_set = getattr(qubits[q], 'entangled_with', set())
-        for other in ent_set:
-            pair = tuple(sorted([q, other]))
-            entangled_pairs.add(pair)
-    # Mapa de fidelidad
-    n = len(qubit_names)
-    fidelity_matrix = np.zeros((n, n))
-    for i in range(n):
-        for j in range(n):
-            state1 = qubits[qubit_names[i]].state
-            state2 = qubits[qubit_names[j]].state
-            fidelity_matrix[i, j] = abs(np.vdot(state1, state2)) ** 2
-    # Visualización de matriz de densidad
-    fig, ax = plt.subplots(figsize=(5, 5))
-    im = ax.imshow(np.real(rho), cmap='RdYlBu')
-    fig.colorbar(im)
-    ax.set_title('Matriz de Densidad Global (Re)')
-    buf = io.BytesIO()
-    plt.tight_layout()
-    plt.savefig(buf, format='png')
-    plt.close(fig)
-    img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-    # Diagnóstico y recomendaciones
-    recs = []
-    if purity < 0.8:
-        recs.append('⚠️ Baja pureza global: considera reducir el ruido o simplificar el circuito.')
-    if coherence < 0.5:
-        recs.append('⚠️ Baja coherencia: revisa la superposición y posibles fuentes de decoherencia.')
-    if len(entangled_pairs) == 0:
-        recs.append('ℹ️ No se detecta entrelazamiento entre qubits.')
-    if np.any(fidelity_matrix < 0.5):
-        recs.append('ℹ️ Algunos qubits tienen baja fidelidad entre sí.')
-    if not recs:
-        recs.append('✅ El sistema cuántico muestra métricas saludables.')
-    # Panel visual
-    html += f"""
-    <div class='row g-3 mb-3'>
-      <div class='col-md-4'>
-        <div class='card border-success h-100'>
-          <div class='card-body'>
-            <h5 class='card-title'>Pureza Global <span class='badge bg-success'>{purity:.4f}</span></h5>
-            <p class='card-text'>Indica cuán puro es el estado global (1 = puro).</p>
-          </div>
-        </div>
-      </div>
-      <div class='col-md-4'>
-        <div class='card border-info h-100'>
-          <div class='card-body'>
-            <h5 class='card-title'>Coherencia l1 Global <span class='badge bg-info text-dark'>{coherence:.4f}</span></h5>
-            <p class='card-text'>Mide la superposición cuántica global.</p>
-          </div>
-        </div>
-      </div>
-      <div class='col-md-4'>
-        <div class='card border-warning h-100'>
-          <div class='card-body'>
-            <h5 class='card-title'>Entropía von Neumann <span class='badge bg-warning text-dark'>{entropy:.4f}</span></h5>
-            <p class='card-text'>Mide el desorden o mezcla del sistema.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class='row g-3 mb-3'>
-      <div class='col-md-6'>
-        <div class='card border-primary'>
-          <div class='card-body'>
-            <h5 class='card-title'>Matriz de Densidad Global</h5>
-            <img src='data:image/png;base64,{img_b64}' style='max-width:100%;height:auto;border:1px solid #888;'>
-          </div>
-        </div>
-      </div>
-      <div class='col-md-6'>
-        <div class='card border-secondary'>
-          <div class='card-body'>
-            <h5 class='card-title'>Diagnóstico y Recomendaciones</h5>
-            <ul>{''.join(f'<li>{r}</li>' for r in recs)}</ul>
-            <b>Pares de qubits entrelazados:</b> {len(entangled_pairs)}<br>
-            <b>Total de qubits:</b> {len(qubit_names)}<br>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class='row g-3 mb-3'>
-      <div class='col-md-12'>
-        <div class='card border-dark'>
-          <div class='card-body'>
-            <h5 class='card-title'>Tabla de Fidelidad Global</h5>
-            <table class='table table-bordered' style='border-collapse:collapse;'>
-              <tr><th></th>{''.join(f'<th>{q}</th>' for q in qubit_names)}</tr>
-              {''.join('<tr><th>'+qubit_names[i]+'</th>' + ''.join(f'<td title="F({qubit_names[i]},{qubit_names[j]})={fidelity_matrix[i,j]:.4f}">{fidelity_matrix[i,j]:.2f}</td>' for j in range(n)) + '</tr>' for i in range(n))}
-            </table>
-          </div>
-        </div>
-      </div>
-    </div>
     """
     # Exportar métricas CSV
     import csv
@@ -1101,279 +1016,323 @@ def metrics_panel():
     writer.writerow(['Pares entrelazados', len(entangled_pairs)])
     csv_data = base64.b64encode(output.getvalue().encode('utf-8')).decode('utf-8')
     output.close()
-    html += f"""
+    info += f"""
     <form method='post' action='/download_csv' style='margin-top:10px;'>
         <input type='hidden' name='csv_data' value='{csv_data}'>
-        <input type='hidden' name='csv_name' value='metricas_globales.csv'>
-        <button type='submit' class='btn btn-primary'><i class='bi bi-download'></i> Descargar métricas CSV</button>
+        <input type='hidden' name='csv_name' value='metricas_{qubit_name}.csv'>
+        <button type='submit' class='btn btn-primary'><i class='bi bi-download'></i> Descargar CSV</button>
     </form>
     """
+    return info
+
+@app.route('/references', methods=['GET'])
+def references_panel():
+    # Lista profesional de referencias y recursos
+    references = [
+        {"title": "Quantum Computation and Quantum Information",
+         "authors": "M. Nielsen, I. Chuang",
+         "type": "Libro",
+         "desc": "El libro de referencia más citado en computación cuántica.",
+         "year": 2010,
+         "link": "https://www.cambridge.org/9781107002173"
+        },
+        {"title": "IBM Quantum Experience",
+         "authors": "IBM Research",
+         "type": "Web",
+         "desc": "Plataforma online para experimentar con computadoras cuánticas reales.",
+         "year": 2024,
+         "link": "https://quantum-computing.ibm.com/"
+        },
+        {"title": "Qiskit: An Open-source Framework for Quantum Computing",
+         "authors": "IBM Qiskit Team",
+         "type": "Framework",
+         "desc": "Framework Python para programación y simulación cuántica.",
+         "year": 2024,
+         "link": "https://qiskit.org/"
+        },
+        {"title": "Quantum Algorithm Zoo",
+         "authors": "S. Jordan",
+         "type": "Web",
+         "desc": "Catálogo de algoritmos cuánticos conocidos.",
+         "year": 2023,
+         "link": "https://quantumalgorithmzoo.org/"
+        },
+        {"title": "QuTiP: Quantum Toolbox in Python",
+         "authors": "J. Johansson et al.",
+         "type": "Framework",
+         "desc": "Librería Python para simulación de sistemas cuánticos abiertos.",
+         "year": 2022,
+         "link": "http://qutip.org/"
+        },
+        {"title": "Quantum Country",
+         "authors": "M. Nielsen, A. Olah",
+         "type": "Web",
+         "desc": "Notas interactivas y tarjetas mnemotécnicas sobre computación cuántica.",
+         "year": 2024,
+         "link": "https://quantum.country/"
+        },
+        {"title": "Wikipedia: Computación cuántica",
+         "authors": "Wikipedia",
+         "type": "Web",
+         "desc": "Artículo introductorio y enlaces a recursos adicionales.",
+         "year": 2025,
+         "link": "https://es.wikipedia.org/wiki/Computaci%C3%B3n_cu%C3%A1ntica"
+        },
+        {"title": "Quantum Machine Learning",
+         "authors": "P. Wittek",
+         "type": "Libro",
+         "desc": "Introducción a machine learning cuántico.",
+         "year": 2014,
+         "link": "https://www.springer.com/gp/book/9783319267013"
+        },
+        {"title": "Quantum Information Theory",
+         "authors": "M. Wilde",
+         "type": "Libro",
+         "desc": "Cobertura moderna de teoría de la información cuántica.",
+         "year": 2017,
+         "link": "https://www.cambridge.org/9781107176164"
+        },
+        {"title": "Quantum Error Correction",
+         "authors": "D. Gottesman",
+         "type": "Paper",
+         "desc": "Revisión fundamental sobre corrección de errores cuánticos.",
+         "year": 2009,
+         "link": "https://arxiv.org/abs/0904.2557"
+        },
+    ]
+    # Filtros y búsqueda
+    query = request.args.get('q', '').strip().lower()
+    ftype = request.args.get('type', '')
+    filtered = [r for r in references if (query in r['title'].lower() or query in r['desc'].lower() or query in r['authors'].lower()) and (ftype == '' or r['type'] == ftype)] if query or ftype else references
+    types = sorted(set(r['type'] for r in references))
+    # Formulario de búsqueda y filtro
+    search_form = f"""
+    <form method='get' class='mb-4 row g-2'>
+      <div class='col-md-6'>
+        <input type='text' class='form-control' name='q' placeholder='Buscar por título, autor o descripción...' value='{query}'>
+      </div>
+      <div class='col-md-4'>
+        <select name='type' class='form-select'>
+          <option value=''>--Tipo--</option>
+          {''.join(f"<option value='{t}'{' selected' if t==ftype else ''}>{t}</option>" for t in types)}
+        </select>
+      </div>
+      <div class='col-md-2'>
+        <button class='btn btn-primary w-100' type='submit'><i class='bi bi-search'></i> Buscar</button>
+      </div>
+    </form>
+    """
+    # Tarjetas visuales
+    cards = ''.join(f"""
+      <div class='col-md-6 mb-3'>
+        <div class='card h-100 border-{('primary' if r['type']=='Libro' else 'success' if r['type']=='Framework' else 'info' if r['type']=='Web' else 'warning')}'>
+          <div class='card-body'>
+            <h5 class='card-title'>{r['title']} <span class='badge bg-secondary'>{r['type']}</span></h5>
+            <h6 class='card-subtitle mb-2 text-muted'>{r['authors']} ({r['year']})</h6>
+            <p class='card-text'>{r['desc']}</p>
+            <a href='{r['link']}' target='_blank' class='btn btn-outline-info btn-sm'><i class='bi bi-box-arrow-up-right'></i> Ver recurso</a>
+          </div>
+        </div>
+      </div>
+    """ for r in filtered) if filtered else "<div class='alert alert-warning'>No se encontraron referencias para esa búsqueda.</div>"
     return render_template_string(
         BOOTSTRAP_HEAD +
-        build_navbar(active='metrics') +
+        build_navbar(active='references') +
         f"""
     <div class='container fade-in'>
       <div class='row'>
-        <div class='col-md-10 offset-md-1'>
-          <div class='card shadow'>
-            <div class='card-body'>
-              <h2 class='card-title'><i class='bi bi-graph-up'></i> Métricas Avanzadas y Diagnóstico</h2>
-              <p>Panel global de métricas cuánticas, diagnóstico y recomendaciones para tu sistema.</p>
-              {html}
-            </div>
-          </div>
+        <div class='col-12'>
+          <h2 class='mb-4'><i class='bi bi-journal-bookmark'></i> Referencias y Recursos</h2>
+          {search_form}
         </div>
+      </div>
+      <div class='row'>
+        {cards}
       </div>
     </div>
     """ + FOOTER + FEEDBACK_BUTTON
     )
 
-@app.route('/algorithms', methods=['GET', 'POST'])
-def algorithms_panel():
-    # Ejemplos de algoritmos cuánticos
-    examples = [
-        {
-            'name': 'Teleportación Cuántica',
-            'desc': 'Transfiere el estado de un qubit a otro usando entrelazamiento y medición.',
-            'code': 'QUBIT q1\nQUBIT q2\nQUBIT q3\nGATE H q2\nGATE CX q2 q3\nGATE CX q1 q2\nGATE H q1\nMEASURE q1\nMEASURE q2\n# ...'
-        },
-        {
-            'name': 'Algoritmo de Grover',
-            'desc': 'Búsqueda cuántica en una base de datos no estructurada.',
-            'code': 'QUBIT q0\nQUBIT q1\nGATE H q0\nGATE H q1\n# ...'
-        },
-        {
-            'name': 'Deutsch-Jozsa',
-            'desc': 'Distingue funciones balanceadas de constantes con una sola consulta.',
-            'code': 'QUBIT q0\nQUBIT q1\nGATE H q0\nGATE H q1\n# ...'
-        },
-        {
-            'name': 'Algoritmo de Shor',
-            'desc': 'Factorización eficiente de números enteros (esquema simplificado).',
-            'code': 'QUBIT q0\nQUBIT q1\nQUBIT q2\n# ...'
-        },
+@app.route('/export', methods=['GET', 'POST'])
+def export_panel():
+    # Formatos de exportación ampliados y mejorados
+    export_types = [
+        {"name": "QASM", "desc": "Exporta el circuito en formato OpenQASM estándar.", "icon": "bi-file-earmark-code", "ext": ".qasm"},
+        {"name": "Qiskit", "desc": "Código Python listo para Qiskit.", "icon": "bi-filetype-py", "ext": ".py"},
+        {"name": "QuTiP", "desc": "Script Python para simulación con QuTiP.", "icon": "bi-terminal", "ext": ".py"},
+        {"name": "Q#", "desc": "Código para Microsoft Q# (Quantum Development Kit).", "icon": "bi-microsoft", "ext": ".qs"},
+        {"name": "Cirq", "desc": "Código Python para Google Cirq.", "icon": "bi-google", "ext": ".py"},
+        {"name": "Braket", "desc": "Código Python para Amazon Braket.", "icon": "bi-amazon", "ext": ".py"},
+        {"name": "ProjectQ", "desc": "Código Python para ProjectQ.", "icon": "bi-terminal-dash", "ext": ".py"},
+        {"name": "LaTeX", "desc": "Código LaTeX para \texttt{quantikz}, \texttt{qcircuit} o TikZ.", "icon": "bi-filetype-tex", "ext": ".tex"},
+        {"name": "TikZ", "desc": "Circuito en formato TikZ para LaTeX.", "icon": "bi-diagram-3", "ext": ".tex"},
+        {"name": "SVG", "desc": "Imagen vectorial escalable del circuito.", "icon": "bi-filetype-svg", "ext": ".svg"},
+        {"name": "PNG", "desc": "Imagen PNG del circuito.", "icon": "bi-image", "ext": ".png"},
+        {"name": "BMP", "desc": "Imagen BMP del circuito.", "icon": "bi-image", "ext": ".bmp"},
+        {"name": "TIFF", "desc": "Imagen TIFF del circuito.", "icon": "bi-image", "ext": ".tiff"},
+        {"name": "SVGZ", "desc": "SVG comprimido.", "icon": "bi-filetype-svg", "ext": ".svgz"},
+        {"name": "EPS", "desc": "Imagen EPS vectorial.", "icon": "bi-filetype-eps", "ext": ".eps"},
+        {"name": "GIF", "desc": "Animación GIF del circuito.", "icon": "bi-filetype-gif", "ext": ".gif"},
+        {"name": "MP4", "desc": "Animación MP4 del circuito.", "icon": "bi-filetype-mp4", "ext": ".mp4"},
+        {"name": "MOV", "desc": "Animación MOV del circuito.", "icon": "bi-filetype-mov", "ext": ".mov"},
+        {"name": "PDF", "desc": "Exporta la visualización del circuito o resultados como PDF.", "icon": "bi-file-earmark-pdf", "ext": ".pdf"},
+        {"name": "HTML", "desc": "Exporta el circuito como página HTML interactiva.", "icon": "bi-filetype-html", "ext": ".html"},
+        {"name": "JSON", "desc": "Exporta la estructura del circuito en JSON.", "icon": "bi-filetype-json", "ext": ".json"},
+        {"name": "YAML", "desc": "Exporta la estructura del circuito en YAML.", "icon": "bi-filetype-yml", "ext": ".yaml"},
+        {"name": "CSV", "desc": "Exporta resultados o métricas en CSV.", "icon": "bi-filetype-csv", "ext": ".csv"},
+        {"name": "Markdown", "desc": "Exporta el circuito como código Markdown.", "icon": "bi-markdown", "ext": ".md"},
+        {"name": "ZIP", "desc": "Descarga todos los archivos relevantes en un ZIP.", "icon": "bi-file-zip", "ext": ".zip"},
+        {"name": "DOCX", "desc": "Exporta resultados a Word.", "icon": "bi-file-earmark-word", "ext": ".docx"},
+        {"name": "PPTX", "desc": "Exporta resultados a PowerPoint.", "icon": "bi-file-earmark-ppt", "ext": ".pptx"},
+        {"name": "XML", "desc": "Exporta el circuito en XML.", "icon": "bi-filetype-xml", "ext": ".xml"},
+        {"name": "TXT", "desc": "Exporta el circuito como texto plano.", "icon": "bi-file-earmark-text", "ext": ".txt"},
     ]
-    selected = request.form.get('example', '') if request.method == 'POST' else ''
-    loaded_code = ''
     msg = ''
+    export_result = ''
+    selected = request.form.get('export_type', '') if request.method == 'POST' else ''
+    # Procesar exportación (mejor UX y feedback)
     if request.method == 'POST' and selected:
-        for ex in examples:
-            if ex['name'] == selected:
-                loaded_code = ex['code']
-                msg = f"<div class='alert alert-success'>Ejemplo '{ex['name']}' cargado. Puedes copiar el código y ejecutarlo en el panel de circuito.</div>"
-                break
-    example_cards = ''.join(f"""
+        if selected == 'QASM':
+            try:
+                from gates.quantum_gates import get_circuit_qasm
+                from interpreter.qlang_interpreter import circuit_operations
+                qasm = get_circuit_qasm(circuit_operations)
+                export_result = f"<textarea class='form-control' rows='8' readonly>{qasm}</textarea>"
+                msg = "<div class='alert alert-success'>Código QASM generado. Puedes copiarlo o descargarlo.</div>"
+            except Exception as e:
+                msg = f"<div class='alert alert-danger'>Error al exportar QASM: {e}</div>"
+        elif selected == 'Qiskit':
+            try:
+                from gates.quantum_gates import get_circuit_qiskit
+                from interpreter.qlang_interpreter import circuit_operations
+                code = get_circuit_qiskit(circuit_operations)
+                export_result = f"<textarea class='form-control' rows='8' readonly>{code}</textarea>"
+                msg = "<div class='alert alert-success'>Código Qiskit generado. Puedes copiarlo o descargarlo.</div>"
+            except Exception as e:
+                msg = f"<div class='alert alert-danger'>Error al exportar Qiskit: {e}</div>"
+        elif selected == 'JSON':
+            try:
+                from interpreter.qlang_interpreter import circuit_operations
+                import json
+                export_result = f"<textarea class='form-control' rows='8' readonly>{json.dumps(circuit_operations, indent=2)}</textarea>"
+                msg = "<div class='alert alert-success'>JSON generado. Puedes copiarlo o descargarlo.</div>"
+            except Exception as e:
+                msg = f"<div class='alert alert-danger'>Error al exportar JSON: {e}</div>"
+        elif selected == 'TXT':
+            try:
+                from interpreter.qlang_interpreter import circuit_operations
+                txt = '\n'.join(str(op) for op in circuit_operations)
+                export_result = f"<textarea class='form-control' rows='8' readonly>{txt}</textarea>"
+                msg = "<div class='alert alert-success'>Texto plano generado. Puedes copiarlo o descargarlo.</div>"
+            except Exception as e:
+                msg = f"<div class='alert alert-danger'>Error al exportar TXT: {e}</div>"
+        elif selected == 'CSV':
+            msg = "<div class='alert alert-info'>Exporta métricas y resultados en CSV desde los paneles de Métricas y Simulación.</div>"
+        elif selected == 'HTML':
+            msg = "<div class='alert alert-info'>Exportación a HTML interactivo estará disponible próximamente.</div>"
+        elif selected == 'PDF':
+            msg = "<div class='alert alert-info'>Exporta a PDF desde el panel Circuito o Visualización usando la opción de imprimir/guardar como PDF.</div>"
+        elif selected == 'SVG' or selected == 'PNG' or selected == 'BMP' or selected == 'TIFF' or selected == 'SVGZ' or selected == 'EPS' or selected == 'GIF':
+            msg = "<div class='alert alert-info'>Descarga la imagen o animación desde el panel Circuito o Visualización.</div>"
+        elif selected == 'Markdown':
+            msg = "<div class='alert alert-info'>Exportación a Markdown estará disponible próximamente.</div>"
+        elif selected == 'YAML':
+            msg = "<div class='alert alert-info'>Exportación a YAML estará disponible próximamente.</div>"
+        elif selected == 'ZIP':
+            msg = "<div class='alert alert-info'>Pronto podrás descargar todos los archivos relevantes en un ZIP.</div>"
+        elif selected == 'DOCX':
+            msg = "<div class='alert alert-info'>Exportación a Word estará disponible próximamente.</div>"
+        elif selected == 'PPTX':
+            msg = "<div class='alert alert-info'>Exportación a PowerPoint estará disponible próximamente.</div>"
+        elif selected == 'XML':
+            msg = "<div class='alert alert-info'>Exportación a XML estará disponible próximamente.</div>"
+        elif selected == 'Q#':
+            msg = "<div class='alert alert-info'>Exportación a Q# estará disponible próximamente.</div>"
+        elif selected == 'QuTiP':
+            msg = "<div class='alert alert-info'>Exportación a QuTiP estará disponible próximamente.</div>"
+        elif selected == 'Cirq':
+            msg = "<div class='alert alert-info'>Exportación a Cirq estará disponible próximamente.</div>"
+        elif selected == 'Braket':
+            msg = "<div class='alert alert-info'>Exportación a Braket estará disponible próximamente.</div>"
+        elif selected == 'ProjectQ':
+            msg = "<div class='alert alert-info'>Exportación a ProjectQ estará disponible próximamente.</div>"
+        elif selected == 'LaTeX' or selected == 'TikZ':
+            msg = "<div class='alert alert-info'>Exportación a LaTeX/TikZ estará disponible próximamente.</div>"
+        elif selected == 'MP4' or selected == 'MOV':
+            msg = "<div class='alert alert-info'>Exportación de animaciones estará disponible próximamente.</div>"
+        else:
+            msg = "<div class='alert alert-warning'>Selecciona un formato válido.</div>"
+    # Formulario de exportación
+    export_form = f"""
+    <form method='post' class='mb-4'>
+      <div class='row g-3'>
+        <div class='col-md-8'>
+          <label class='form-label'>Selecciona el formato de exportación:</label>
+          <select name='export_type' class='form-select'>
+            <option value=''>--Formato--</option>
+            {''.join(f"<option value='{e['name']}'{' selected' if selected==e['name'] else ''}>{e['name']}</option>" for e in export_types)}
+          </select>
+        </div>
+        <div class='col-md-4 d-flex align-items-end'>
+          <button type='submit' class='btn btn-primary w-100'><i class='bi bi-box-arrow-up'></i> Exportar</button>
+        </div>
+      </div>
+    </form>
+    """
+    # Tarjetas de exportación rápida
+    cards = ''.join(f"""
       <div class='col-md-6 mb-3'>
         <div class='card h-100'>
           <div class='card-body'>
-            <h5 class='card-title'>{ex['name']}</h5>
-            <p class='card-text'>{ex['desc']}</p>
-            <form method='post'>
-              <input type='hidden' name='example' value='{ex['name']}'>
-              <button type='submit' class='btn btn-primary'><i class='bi bi-lightning'></i> Cargar ejemplo</button>
+            <h5 class='card-title'>{et['name']} <i class='bi {et['icon']}'></i></h5>
+            <p class='card-text'>{et['desc']}</p>
+            <form method='post' action='/export' style='display:inline;'>
+              <input type='hidden' name='export_type' value='{et['name']}'>
+              <button type='submit' class='btn btn-outline-primary btn-sm'><i class='bi bi-download'></i> Exportar {et['name']}</button>
             </form>
           </div>
         </div>
       </div>
-    """ for ex in examples)
-    code_area = f"""
-    <div class='card mt-4'>
-      <div class='card-header'>Código del ejemplo seleccionado</div>
-      <div class='card-body'>
-        <textarea class='form-control' rows='8' readonly>{loaded_code}</textarea>
-        <div class='mt-2'><span class='badge bg-info'>Tip:</span> Copia este código y pégalo en el panel de circuito para ejecutarlo.</div>
-      </div>
-    </div>
-    """ if loaded_code else ''
-    return render_template_string(
-        BOOTSTRAP_HEAD +
-        build_navbar(active='algorithms') +
-        f"""
-    <div class='container fade-in'>
-      <div class='row'>
-        <div class='col-md-10 offset-md-1'>
-          <div class='card shadow'>
-            <div class='card-body'>
-              <h2 class='card-title'><i class='bi bi-lightbulb'></i> Ejemplos de Algoritmos Cuánticos</h2>
-              <p>Explora y carga ejemplos de algoritmos cuánticos clásicos. Pronto podrás ejecutarlos y visualizarlos directamente.</p>
-              {msg}
-              <div class='row'>
-                {example_cards}
-              </div>
-              {code_area}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    """ + FOOTER + FEEDBACK_BUTTON
-    )
-
-# Paneles avanzados base
-@app.route('/glossary')
-def glossary_panel():
-    return render_template_string(
-        BOOTSTRAP_HEAD +
-        build_navbar(active='glossary') +
-        """
-    <div class='container fade-in'>
-      <div class='row'>
-        <div class='col-md-8 offset-md-2'>
-          <div class='card shadow'>
-            <div class='card-body'>
-              <h2 class='card-title'><i class='bi bi-book'></i> Glosario Cuántico</h2>
-              <p>Consulta términos y conceptos clave de computación cuántica. <span class='badge bg-warning'>Próximamente</span></p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    """ + FOOTER + FEEDBACK_BUTTON
-    )
-
-@app.route('/tutorial')
-def tutorial_panel():
-    return render_template_string(
-        BOOTSTRAP_HEAD +
-        build_navbar(active='tutorial') +
-        """
-    <div class='container fade-in'>
-      <div class='row'>
-        <div class='col-md-8 offset-md-2'>
-          <div class='card shadow'>
-            <div class='card-body'>
-              <h2 class='card-title'><i class='bi bi-mortarboard'></i> Tutorial Interactivo</h2>
-              <p>Aprende paso a paso sobre qubits, puertas, circuitos y simulación. <span class='badge bg-warning'>Próximamente</span></p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    """ + FOOTER + FEEDBACK_BUTTON
-    )
-
-@app.route('/decoherence')
-def decoherence_panel():
-    return render_template_string(
-        BOOTSTRAP_HEAD +
-        build_navbar(active='decoherence') +
-        """
-    <div class='container fade-in'>
-      <div class='row'>
-        <div class='col-md-8 offset-md-2'>
-          <div class='card shadow'>
-            <div class='card-body'>
-              <h2 class='card-title'><i class='bi bi-cloud-drizzle'></i> Decoherencia</h2>
-              <p>Explora el fenómeno de la decoherencia y su impacto en los sistemas cuánticos. <span class='badge bg-warning'>Próximamente</span></p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    """ + FOOTER + FEEDBACK_BUTTON
-    )
-
-@app.route('/history')
-def history_panel():
-    return render_template_string(
-        BOOTSTRAP_HEAD +
-        build_navbar(active='history') +
-        """
-    <div class='container fade-in'>
-      <div class='row'>
-        <div class='col-md-8 offset-md-2'>
-          <div class='card shadow'>
-            <div class='card-body'>
-              <h2 class='card-title'><i class='bi bi-clock-history'></i> Historial de Circuitos</h2>
-              <p>Consulta y recupera el historial de tus circuitos y simulaciones. <span class='badge bg-warning'>Próximamente</span></p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    """ + FOOTER + FEEDBACK_BUTTON
-    )
-
-@app.route('/ai')
-def ai_panel():
-    return render_template_string(
-        BOOTSTRAP_HEAD +
-        build_navbar(active='ai') +
-        """
-    <div class='container fade-in'>
-      <div class='row'>
-        <div class='col-md-8 offset-md-2'>
-          <div class='card shadow'>
-            <div class='card-body'>
-              <h2 class='card-title'><i class='bi bi-robot'></i> Asistente IA</h2>
-              <p>Recibe sugerencias inteligentes y asistencia para tus circuitos cuánticos. <span class='badge bg-warning'>Próximamente</span></p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    """ + FOOTER + FEEDBACK_BUTTON
-    )
-
-@app.route('/exercises')
-def exercises_panel():
-    return render_template_string(
-        BOOTSTRAP_HEAD +
-        build_navbar(active='exercises') +
-        """
-    <div class='container fade-in'>
-      <div class='row'>
-        <div class='col-md-8 offset-md-2'>
-          <div class='card shadow'>
-            <div class='card-body'>
-              <h2 class='card-title'><i class='bi bi-trophy'></i> Ejercicios y Retos</h2>
-              <p>Pon a prueba tus conocimientos con ejercicios y desafíos cuánticos. <span class='badge bg-warning'>Próximamente</span></p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    """ + FOOTER + FEEDBACK_BUTTON
-    )
-
-@app.route('/references')
-def references_panel():
-    return render_template_string(
-        BOOTSTRAP_HEAD +
-        build_navbar(active='references') +
-        """
-    <div class='container fade-in'>
-      <div class='row'>
-        <div class='col-md-8 offset-md-2'>
-          <div class='card shadow'>
-            <div class='card-body'>
-              <h2 class='card-title'><i class='bi bi-journal-bookmark'></i> Referencias</h2>
-              <p>Consulta bibliografía, papers y recursos recomendados. <span class='badge bg-warning'>Próximamente</span></p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    """ + FOOTER + FEEDBACK_BUTTON
-    )
-
-@app.route('/export')
-def export_panel():
+    """ for et in export_types)
     return render_template_string(
         BOOTSTRAP_HEAD +
         build_navbar(active='export') +
-        """
+        f"""
     <div class='container fade-in'>
       <div class='row'>
-        <div class='col-md-8 offset-md-2'>
-          <div class='card shadow'>
-            <div class='card-body'>
-              <h2 class='card-title'><i class='bi bi-box-arrow-up'></i> Exportación Avanzada</h2>
-              <p>Exporta tus circuitos y resultados a PDF, Q#, QuTiP y más formatos. <span class='badge bg-warning'>Próximamente</span></p>
-            </div>
+        <div class='col-12'>
+          <h2 class='mb-4'><i class='bi bi-box-arrow-up'></i> Exportación Avanzada</h2>
+          <p>Exporta tu circuito o resultados en múltiples formatos profesionales para usar en otros simuladores, artículos o presentaciones.</p>
+          <div id="export-loading" style="display:none;text-align:center;">
+            <div class="spinner-border text-primary" role="status" aria-label="Cargando exportación..."></div>
+            <div class="mt-2">Procesando exportación...</div>
           </div>
+          {export_form}
+          <div aria-live="polite" id="export-feedback">{msg}</div>
+          {export_result}
         </div>
       </div>
+      <div class='row'>
+        {cards}
+      </div>
+      <div class='alert alert-info mt-4' role='alert'>¿Necesitas un formato especial? ¡Envíanos feedback!</div>
     </div>
+    <script>
+    // Microinteracción: loading spinner al exportar
+    document.querySelectorAll('form').forEach(function(form) {
+      form.addEventListener('submit', function(e) {
+        if (form.querySelector('select[name="export_type"]')) {
+          document.getElementById('export-loading').style.display = 'block';
+        }
+      });
+    });
+    // Accesibilidad: enfocar feedback tras exportar
+    window.addEventListener('DOMContentLoaded', function() {
+      var feedback = document.getElementById('export-feedback');
+      if (feedback && feedback.textContent.trim().length > 0) {
+        feedback.focus && feedback.focus();
+      }
+    });
+    </script>
     """ + FOOTER + FEEDBACK_BUTTON
     )
