@@ -5,24 +5,64 @@ from interpreter.qlang_interpreter import qubits, interpret
 app = Flask(__name__)
 
 NAVBAR = """
-<nav>
-  <a href='/'>Inicio</a> |
-  <a href='/qubits'>Qubits</a> |
-  <a href='/circuit'>Circuito</a> |
-  <a href='/visualization'>Visualización</a> |
-  <a href='/simulate'>Simular</a>
+<nav class='navbar navbar-expand-lg navbar-dark bg-dark mb-4'>
+  <div class='container-fluid'>
+    <a class='navbar-brand' href='/'>Simulador Cuántico</a>
+    <div class='collapse navbar-collapse'>
+      <ul class='navbar-nav me-auto mb-2 mb-lg-0'>
+        <li class='nav-item'><a class='nav-link' href='/qubits'>Qubits</a></li>
+        <li class='nav-item'><a class='nav-link' href='/circuit'>Circuito</a></li>
+        <li class='nav-item'><a class='nav-link' href='/visualization'>Visualización</a></li>
+        <li class='nav-item'><a class='nav-link' href='/simulate'>Simular</a></li>
+      </ul>
+    </div>
+  </div>
 </nav>
+"""
+
+BOOTSTRAP_HEAD = """
+<!DOCTYPE html>
+<html lang='es'>
+<head>
+  <meta charset='UTF-8'>
+  <meta name='viewport' content='width=device-width, initial-scale=1'>
+  <title>Simulador Cuántico</title>
+  <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css' rel='stylesheet'>
+  <script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js'></script>
+  <style>
+    body { background: #f8f9fa; }
+    .card { margin-bottom: 1.5rem; }
+    .navbar-brand { font-weight: bold; }
+    .btn-primary, .btn-danger, .btn-success { min-width: 120px; }
+    .table th, .table td { vertical-align: middle; }
+    .form-label { font-weight: 500; }
+    .feedback { margin-top: 10px; }
+  </style>
+</head>
+<body>
 """
 
 @app.route('/')
 def index():
     return render_template_string(f"""
+    {BOOTSTRAP_HEAD}
     {NAVBAR}
-    <h1>Simulador Cuántico (Web)</h1>
-    <p>¡Bienvenido! Selecciona un panel del menú para comenzar.</p>
-    <form method='post' action='/dbtest'>
-        <button type='submit'>Probar conexión a PostgreSQL</button>
-    </form>
+    <div class='container'>
+      <div class='row justify-content-center'>
+        <div class='col-md-8'>
+          <div class='card shadow'>
+            <div class='card-body'>
+              <h1 class='card-title mb-3'>Simulador Cuántico (Web)</h1>
+              <p class='lead'>¡Bienvenido! Selecciona un panel del menú para comenzar.</p>
+              <form method='post' action='/dbtest'>
+                <button type='submit' class='btn btn-outline-secondary'>Probar conexión a PostgreSQL</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </body></html>
     """)
 
 @app.route('/qubits', methods=['GET', 'POST'])
@@ -126,30 +166,48 @@ def qubits_panel():
     </form>
     """
     return render_template_string(f"""
-    {{NAVBAR}}
-    <h2>Panel de Qubits</h2>
-    <form method='post'>
-        <label>Nombre del qubit:</label>
-        <input type='text' name='qubit_name' required>
-        <button type='submit'>Crear Qubit</button>
-    </form>
-    <div>{msg}</div>
-    <h3>Qubits activos:</h3>
-    {qubit_list_html}
-    <form method='post' style='margin-top:20px;'>
-        <label>Eliminar qubit:</label>
-        <select name='delete_qubit'>
-            <option value=''>--Selecciona--</option>
-            {''.join(f'<option value="{q}">{q}</option>' for q in qubit_list)}
-        </select>
-        <button type='submit' name='action' value='delete'>Eliminar</button>
-    </form>
-    {reset_all_form}
-    {gate_form}
-    {bloch_form}
-    {prob_amp_form}
-    {metrics_form}
-    <!-- Aquí irá la visualización y manipulación de qubits -->
+    {BOOTSTRAP_HEAD}
+    {NAVBAR}
+    <div class='container'>
+      <div class='row'>
+        <div class='col-md-6'>
+          <div class='card shadow'>
+            <div class='card-body'>
+              <h2 class='card-title'>Panel de Qubits</h2>
+              <form method='post' class='mb-3'>
+                <label class='form-label'>Nombre del qubit:</label>
+                <input type='text' name='qubit_name' class='form-control mb-2' required>
+                <button type='submit' class='btn btn-primary'>Crear Qubit</button>
+              </form>
+              <div class='feedback'>{msg}</div>
+              <h5>Qubits activos:</h5>
+              <div>{qubit_list_html}</div>
+              <form method='post' class='mb-2'>
+                <label class='form-label'>Eliminar qubit:</label>
+                <select name='delete_qubit' class='form-select mb-2'>
+                  <option value=''>--Selecciona--</option>
+                  {''.join(f'<option value="{q}">{q}</option>' for q in qubit_list)}
+                </select>
+                <button type='submit' name='action' value='delete' class='btn btn-danger'>Eliminar</button>
+              </form>
+              {reset_all_form}
+            </div>
+          </div>
+        </div>
+        <div class='col-md-6'>
+          <div class='card shadow'>
+            <div class='card-body'>
+              <h5>Operaciones y Visualización</h5>
+              {gate_form}
+              {bloch_form}
+              {prob_amp_form}
+              {metrics_form}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </body></html>
     """, NAVBAR=NAVBAR)
 
 @app.route('/circuit', methods=['GET', 'POST'])
@@ -223,17 +281,28 @@ def circuit_panel():
             for i, op in enumerate(circuit_operations)
         ) + "</ul>"
     return render_template_string(f"""
-    {{NAVBAR}}
-    <h2>Panel de Circuito Cuántico</h2>
-    <p>Construye y visualiza tu circuito cuántico aquí.</p>
-    <div>{msg}</div>
-    {add_gate_form}
-    {reset_form}
-    <h3>Operaciones actuales:</h3>
-    {ops_html}
-    <h3>Visualización del circuito:</h3>
-    {img_html}
-    <!-- Aquí irá el editor y visualizador de circuitos -->
+    {BOOTSTRAP_HEAD}
+    {NAVBAR}
+    <div class='container'>
+      <div class='row'>
+        <div class='col-md-8 offset-md-2'>
+          <div class='card shadow'>
+            <div class='card-body'>
+              <h2 class='card-title'>Panel de Circuito Cuántico</h2>
+              <p>Construye y visualiza tu circuito cuántico aquí.</p>
+              <div class='feedback'>{msg}</div>
+              {add_gate_form}
+              {reset_form}
+              <h5>Operaciones actuales:</h5>
+              {ops_html}
+              <h5>Visualización del circuito:</h5>
+              {img_html}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </body></html>
     """, NAVBAR=NAVBAR)
 
 @app.route('/visualization', methods=['GET', 'POST'])
@@ -271,7 +340,7 @@ def visualization_panel():
         entropy = -sum(e*np.log2(e) for e in eigs if e > 1e-10)
         html += "<h3>Matriz de Densidad Global</h3>"
         html += f"<img src='data:image/png;base64,{img_b64}' style='max-width:100%;height:auto;border:1px solid #888;'><br>"
-        html += f"<form method='post' action='/download_img' style='display:inline;'><input type='hidden' name='img_data' value='{img_b64}'><input type='hidden' name='img_name' value='matriz_densidad.png'><button type='submit'>Descargar imagen</button></form>"
+        html += f"<form method='post' action='/download_img' style='display:inline;'><input type='hidden' name='img_data' value='{img_b64}'><input type='hidden' name='img_name' value='matriz_densidad.png'><button type='submit' class='btn btn-primary'>Descargar imagen</button></form>"
         html += f"<br><b>Coherencia global l1:</b> {coherence:.6f}<br>"
         html += f"<b>Pureza global:</b> {purity:.6f}<br>"
         html += f"<b>Entropía von Neumann global:</b> {entropy:.6f}<br>"
@@ -312,13 +381,13 @@ def visualization_panel():
                     for q in qubit_names
                 )}
             </select>
-            <button type='submit'>Resaltar</button>
+            <button type='submit' class='btn btn-primary'>Resaltar</button>
         </form>
         <img src='data:image/png;base64,{img_b64_2}' style='max-width:100%;height:auto;border:1px solid #888;' title='Mapa de fidelidad'>
-        <form method='post' action='/download_img' style='display:inline;'><input type='hidden' name='img_data' value='{img_b64_2}'><input type='hidden' name='img_name' value='mapa_fidelidad.png'><button type='submit'>Descargar imagen</button></form>
+        <form method='post' action='/download_img' style='display:inline;'><input type='hidden' name='img_data' value='{img_b64_2}'><input type='hidden' name='img_name' value='mapa_fidelidad.png'><button type='submit' class='btn btn-primary'>Descargar imagen</button></form>
         <br>
         <b>Tabla de fidelidad:</b>
-        <table border='1' style='border-collapse:collapse;'>
+        <table class='table table-bordered' style='border-collapse:collapse;'>
             <tr><th></th>{''.join(f'<th>{q}</th>' for q in qubit_names)}</tr>
             {''.join('<tr><th>'+qubit_names[i]+'</th>' + ''.join(f'<td title="F({qubit_names[i]},{qubit_names[j]})={fidelity_matrix[i,j]:.4f}">{fidelity_matrix[i,j]:.2f}</td>' for j in range(n)) + '</tr>' for i in range(n))}
         </table>
@@ -335,11 +404,22 @@ def visualization_panel():
     else:
         html = "<i>Se requieren al menos dos qubits para visualización global.</i>"
     return render_template_string(f"""
-    {{NAVBAR}}
-    <h2>Panel de Visualización</h2>
-    <p>Visualiza el estado cuántico (esfera de Bloch, matriz de densidad global, coherencia, etc.).</p>
-    {html}
-    <!-- Aquí irán más visualizaciones interactivas -->
+    {BOOTSTRAP_HEAD}
+    {NAVBAR}
+    <div class='container'>
+      <div class='row'>
+        <div class='col-md-10 offset-md-1'>
+          <div class='card shadow'>
+            <div class='card-body'>
+              <h2 class='card-title'>Panel de Visualización</h2>
+              <p>Visualiza el estado cuántico (esfera de Bloch, matriz de densidad global, coherencia, etc.).</p>
+              {html}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </body></html>
     """, NAVBAR=NAVBAR)
 
 @app.route('/download_img', methods=['POST'])
@@ -416,7 +496,7 @@ def simulate_panel():
     download_form = """
     <form method='post' action='/download_csv' style='margin-top:10px;'>
         <input type='hidden' name='csv_data' id='csv_data'>
-        <button type='submit'>Descargar resultados CSV</button>
+        <button type='submit' class='btn btn-primary'>Descargar resultados CSV</button>
     </form>
     <script>
     // Insertar el CSV en el campo oculto
@@ -430,20 +510,31 @@ def simulate_panel():
     <form method='post' action='/download_img' style='margin-top:10px;'>
         <input type='hidden' name='img_data' value='{hist_b64}'>
         <input type='hidden' name='img_name' value='histograma_simulacion.png'>
-        <button type='submit'>Descargar histograma</button>
+        <button type='submit' class='btn btn-primary'>Descargar histograma</button>
     </form>
     """ if hist_b64 else ''
     return render_template_string(f"""
-    {{NAVBAR}}
-    <h2>Panel de Simulación</h2>
-    <form method='post'>
-        <button type='submit'>Ejecutar Simulación</button>
-    </form>
-    <div>{msg}</div>
-    {result_html}
-    {download_form}
-    {download_hist_form}
-    <!-- Aquí irá el control de simulación y resultados -->
+    {BOOTSTRAP_HEAD}
+    {NAVBAR}
+    <div class='container'>
+      <div class='row'>
+        <div class='col-md-8 offset-md-2'>
+          <div class='card shadow'>
+            <div class='card-body'>
+              <h2 class='card-title'>Panel de Simulación</h2>
+              <form method='post' class='mb-3'>
+                <button type='submit' class='btn btn-success'>Ejecutar Simulación</button>
+              </form>
+              <div class='feedback'>{msg}</div>
+              {result_html}
+              {download_form}
+              {download_hist_form}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    </body></html>
     """, NAVBAR=NAVBAR)
 
 @app.route('/dbtest', methods=['POST'])
@@ -516,7 +607,7 @@ def bloch_sphere():
     <form method='post' action='/download_img' style='margin-top:10px;'>
         <input type='hidden' name='img_data' value='{img_b64}'>
         <input type='hidden' name='img_name' value='bloch_{qubit_name}.png'>
-        <button type='submit'>Descargar imagen</button>
+        <button type='submit' class='btn btn-primary'>Descargar imagen</button>
     </form>
     """
 
@@ -550,7 +641,7 @@ def qubit_info():
     <form method='post' action='/download_csv' style='margin-top:10px;'>
         <input type='hidden' name='csv_data' value='{csv_data}'>
         <input type='hidden' name='csv_name' value='estado_{qubit_name}.csv'>
-        <button type='submit'>Descargar CSV</button>
+        <button type='submit' class='btn btn-primary'>Descargar CSV</button>
     </form>
     """
     return info
@@ -594,7 +685,7 @@ def qubit_metrics():
     <form method='post' action='/download_csv' style='margin-top:10px;'>
         <input type='hidden' name='csv_data' value='{csv_data}'>
         <input type='hidden' name='csv_name' value='metricas_{qubit_name}.csv'>
-        <button type='submit'>Descargar CSV</button>
+        <button type='submit' class='btn btn-primary'>Descargar CSV</button>
     </form>
     """
     return info
