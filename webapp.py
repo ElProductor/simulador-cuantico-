@@ -147,7 +147,6 @@ def qubits_panel():
         elif not name and not action:
             msg = "<span style='color:red'>Debes ingresar un nombre.</span>"
     qubit_list = list(qubits.keys())
-    qubit_list_html = '<ul>' + ''.join(f'<li>{q}</li>' for q in qubit_list) + '</ul>' if qubit_list else '<i>No hay qubits activos.</i>'
     # Opciones de puertas cuánticas básicas
     gates = ['H', 'X', 'Y', 'Z']
     gate_form = f"""
@@ -184,7 +183,6 @@ def qubits_panel():
                 interpret(f"GATE {gate} {target}")
                 msg = f"<span style='color:green'>Puerta {gate} aplicada a {target}.</span>"
     qubit_list = list(qubits.keys())
-    qubit_list_html = '<ul>' + ''.join(f'<li>{q}</li>' for q in qubit_list) + '</ul>' if qubit_list else '<i>No hay qubits activos.</i>'
     # Visualización: Esfera de Bloch para un qubit seleccionado
     bloch_form = f"""
     <form method='get' action='/bloch' style='margin-top:20px;'>
@@ -746,14 +744,49 @@ def qubit_metrics():
     info = f"""
     <a href='/qubits'>← Volver</a><br>
     <h2>Métricas avanzadas de {qubit_name}</h2>
-    <b>Pureza:</b> {purity:.6f}<br>
-    <b>Coherencia l1:</b> {coherence:.6f}<br>
-    <b>Entropía von Neumann:</b> {entropy:.6f}<br>
-    <b>Coordenadas de Bloch:</b> X={x:.4f}, Y={y:.4f}, Z={z:.4f}<br>
+    <div class='row g-3 mb-3'>
+      <div class='col-md-4'>
+        <div class='card border-success h-100'>
+          <div class='card-body'>
+            <h5 class='card-title'>Pureza <span class='badge bg-success'>{purity:.4f}</span></h5>
+            <p class='card-text'>Indica cuán puro es el estado del qubit (1 = puro).</p>
+          </div>
+        </div>
+      </div>
+      <div class='col-md-4'>
+        <div class='card border-info h-100'>
+          <div class='card-body'>
+            <h5 class='card-title'>Coherencia l1 <span class='badge bg-info text-dark'>{coherence:.4f}</span></h5>
+            <p class='card-text'>Mide la superposición cuántica del qubit.</p>
+          </div>
+        </div>
+      </div>
+      <div class='col-md-4'>
+        <div class='card border-warning h-100'>
+          <div class='card-body'>
+            <h5 class='card-title'>Entropía von Neumann <span class='badge bg-warning text-dark'>{entropy:.4f}</span></h5>
+            <p class='card-text'>Mide el desorden o mezcla del estado.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class='row g-3 mb-3'>
+      <div class='col-md-12'>
+        <div class='card border-primary'>
+          <div class='card-body'>
+            <h5 class='card-title'>Coordenadas de Bloch</h5>
+            <span class='badge bg-primary'>X={x:.4f}</span>
+            <span class='badge bg-primary'>Y={y:.4f}</span>
+            <span class='badge bg-primary'>Z={z:.4f}</span>
+            <p class='card-text mt-2'>Representan la posición del estado en la esfera de Bloch.</p>
+          </div>
+        </div>
+      </div>
+    </div>
     <form method='post' action='/download_csv' style='margin-top:10px;'>
         <input type='hidden' name='csv_data' value='{csv_data}'>
         <input type='hidden' name='csv_name' value='metricas_{qubit_name}.csv'>
-        <button type='submit' class='btn btn-primary'>Descargar CSV</button>
+        <button type='submit' class='btn btn-primary'><i class='bi bi-download'></i> Descargar CSV</button>
     </form>
     """
     return info
