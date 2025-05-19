@@ -1004,18 +1004,7 @@ def qubit_metrics():
       </div>
     </div>
     """
-    # Exportar métricas CSV
-    import csv
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['Métrica', 'Valor'])
-    writer.writerow(['Pureza Global', f'{purity:.6f}'])
-    writer.writerow(['Coherencia l1 Global', f'{coherence:.6f}'])
-    writer.writerow(['Entropía von Neumann', f'{entropy:.6f}'])
-    writer.writerow(['Qubits', len(qubit_names)])
-    writer.writerow(['Pares entrelazados', len(entangled_pairs)])
-    csv_data = base64.b64encode(output.getvalue().encode('utf-8')).decode('utf-8')
-    output.close()
+    # Exportar métricas CSV (solo del qubit actual)
     info += f"""
     <form method='post' action='/download_csv' style='margin-top:10px;'>
         <input type='hidden' name='csv_data' value='{csv_data}'>
@@ -1319,20 +1308,20 @@ def export_panel():
     </div>
     <script>
     // Microinteracción: loading spinner al exportar
-    document.querySelectorAll('form').forEach(function(form) {
-      form.addEventListener('submit', function(e) {
-        if (form.querySelector('select[name="export_type"]')) {
+    document.querySelectorAll('form').forEach(function(form) {{
+      form.addEventListener('submit', function(e) {{
+        if (form.querySelector('select[name="export_type"]')) {{
           document.getElementById('export-loading').style.display = 'block';
-        }
-      });
-    });
+        }}
+      }});
+    }});
     // Accesibilidad: enfocar feedback tras exportar
-    window.addEventListener('DOMContentLoaded', function() {
+    window.addEventListener('DOMContentLoaded', function() {{
       var feedback = document.getElementById('export-feedback');
-      if (feedback && feedback.textContent.trim().length > 0) {
-        feedback.focus && feedback.focus();
-      }
-    });
+      if (feedback && feedback.textContent.trim().length > 0) {{
+        if (feedback.focus) feedback.focus();
+      }}
+    }});
     </script>
     """ + FOOTER + FEEDBACK_BUTTON
     )
