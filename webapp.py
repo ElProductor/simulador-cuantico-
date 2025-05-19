@@ -28,42 +28,95 @@ BOOTSTRAP_HEAD = """
   <meta name='viewport' content='width=device-width, initial-scale=1'>
   <title>Simulador Cuántico</title>
   <link href='https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css' rel='stylesheet'>
+  <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.css'>
   <script src='https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js'></script>
   <style>
     body { background: #f8f9fa; }
-    .card { margin-bottom: 1.5rem; }
+    .card { margin-bottom: 1.5rem; animation: fadein 0.7s; }
     .navbar-brand { font-weight: bold; }
     .btn-primary, .btn-danger, .btn-success { min-width: 120px; }
     .table th, .table td { vertical-align: middle; }
     .form-label { font-weight: 500; }
     .feedback { margin-top: 10px; }
+    .fade-in { animation: fadein 0.7s; }
+    @keyframes fadein { from { opacity: 0; } to { opacity: 1; } }
+    .help-fab {
+      position: fixed; bottom: 30px; right: 30px; z-index: 9999;
+      background: #0d6efd; color: #fff; border-radius: 50%; width: 56px; height: 56px;
+      display: flex; align-items: center; justify-content: center; font-size: 2rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2); cursor: pointer;
+    }
+    .help-fab:hover { background: #084298; }
+    .footer {
+      background: #222; color: #bbb; padding: 16px 0; text-align: center; margin-top: 40px;
+    }
+    .footer a { color: #0d6efd; text-decoration: underline; }
   </style>
 </head>
 <body>
+<div id='helpModal' class='modal fade' tabindex='-1'>
+  <div class='modal-dialog'>
+    <div class='modal-content'>
+      <div class='modal-header'>
+        <h5 class='modal-title'><i class='bi bi-info-circle'></i> Ayuda rápida</h5>
+        <button type='button' class='btn-close' data-bs-dismiss='modal'></button>
+      </div>
+      <div class='modal-body'>
+        <ul>
+          <li>Usa el panel <b>Qubits</b> para crear, eliminar y manipular qubits individuales.</li>
+          <li>En <b>Circuito</b> puedes construir y visualizar circuitos cuánticos paso a paso.</li>
+          <li>El panel <b>Visualización</b> muestra métricas globales, mapas de fidelidad y entrelazamiento.</li>
+          <li>En <b>Simular</b> ejecuta el circuito y descarga resultados o visualizaciones.</li>
+          <li>Haz clic en los <i class='bi bi-question-circle'></i> para ver más información contextual.</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+<button class='help-fab' title='Ayuda' data-bs-toggle='modal' data-bs-target='#helpModal'><i class='bi bi-question-circle'></i></button>
+"""
+
+TOOLTIP_SCRIPT = '''
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+  var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+  tooltipTriggerList.map(function (tooltipTriggerEl) {
+    return new bootstrap.Tooltip(tooltipTriggerEl);
+  });
+});
+</script>
+'''
+
+FOOTER = """
+<div class='footer'>
+  Simulador Cuántico Web &copy; 2025 | Desarrollado por <a href='https://github.com/ElProductor/simulador-cuantico-' target='_blank'><i class='bi bi-github'></i> GitHub</a>
+</div>
+</body></html>
 """
 
 @app.route('/')
 def index():
-    return render_template_string(f"""
-    {BOOTSTRAP_HEAD}
-    {NAVBAR}
-    <div class='container'>
+    return render_template_string(
+        BOOTSTRAP_HEAD +
+        NAVBAR +
+        """
+    <div class='container fade-in'>
       <div class='row justify-content-center'>
         <div class='col-md-8'>
           <div class='card shadow'>
             <div class='card-body'>
-              <h1 class='card-title mb-3'>Simulador Cuántico (Web)</h1>
+              <h1 class='card-title mb-3'><i class='bi bi-cpu'></i> Simulador Cuántico (Web)</h1>
               <p class='lead'>¡Bienvenido! Selecciona un panel del menú para comenzar.</p>
               <form method='post' action='/dbtest'>
-                <button type='submit' class='btn btn-outline-secondary'>Probar conexión a PostgreSQL</button>
+                <button type='submit' class='btn btn-outline-secondary'><i class='bi bi-database-check'></i> Probar conexión a PostgreSQL</button>
               </form>
             </div>
           </div>
         </div>
       </div>
     </div>
-    </body></html>
-    """)
+    """ + FOOTER
+    )
 
 @app.route('/qubits', methods=['GET', 'POST'])
 def qubits_panel():
@@ -165,30 +218,42 @@ def qubits_panel():
         <button type='submit'>Ver Métricas</button>
     </form>
     """
-    return render_template_string(f"""
-    {BOOTSTRAP_HEAD}
-    {NAVBAR}
-    <div class='container'>
+    alert = ''
+    if msg:
+        if 'color:green' in msg:
+            alert = f"<div class='alert alert-success alert-dismissible fade show' role='alert'>{msg}<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>"
+        else:
+            alert = f"<div class='alert alert-danger alert-dismissible fade show' role='alert'>{msg}<button type='button' class='btn-close' data-bs-dismiss='alert'></button></div>"
+    qubit_table = ''
+    if qubit_list:
+        qubit_table = "<table class='table table-striped table-bordered'><thead><tr><th>Qubit</th></tr></thead><tbody>" + ''.join(f"<tr><td>{q}</td></tr>" for q in qubit_list) + "</tbody></table>"
+    else:
+        qubit_table = '<i>No hay qubits activos.</i>'
+    return render_template_string(
+        BOOTSTRAP_HEAD +
+        NAVBAR +
+        f"""
+    <div class='container fade-in'>
       <div class='row'>
         <div class='col-md-6'>
           <div class='card shadow'>
             <div class='card-body'>
-              <h2 class='card-title'>Panel de Qubits</h2>
+              <h2 class='card-title'><i class='bi bi-gear'></i> Panel de Qubits</h2>
               <form method='post' class='mb-3'>
-                <label class='form-label'>Nombre del qubit:</label>
+                <label class='form-label'>Nombre del qubit: <i class='bi bi-question-circle' data-bs-toggle='tooltip' title='Elige un nombre único para tu qubit.'></i></label>
                 <input type='text' name='qubit_name' class='form-control mb-2' required>
-                <button type='submit' class='btn btn-primary'>Crear Qubit</button>
+                <button type='submit' class='btn btn-primary'><i class='bi bi-plus-circle'></i> Crear Qubit</button>
               </form>
-              <div class='feedback'>{msg}</div>
+              {alert}
               <h5>Qubits activos:</h5>
-              <div>{qubit_list_html}</div>
+              <div>{qubit_table}</div>
               <form method='post' class='mb-2'>
-                <label class='form-label'>Eliminar qubit:</label>
+                <label class='form-label'>Eliminar qubit: <i class='bi bi-question-circle' data-bs-toggle='tooltip' title='Selecciona un qubit para eliminarlo.'></i></label>
                 <select name='delete_qubit' class='form-select mb-2'>
                   <option value=''>--Selecciona--</option>
                   {''.join(f'<option value="{q}">{q}</option>' for q in qubit_list)}
                 </select>
-                <button type='submit' name='action' value='delete' class='btn btn-danger'>Eliminar</button>
+                <button type='submit' name='action' value='delete' class='btn btn-danger'><i class='bi bi-trash'></i> Eliminar</button>
               </form>
               {reset_all_form}
             </div>
@@ -207,8 +272,8 @@ def qubits_panel():
         </div>
       </div>
     </div>
-    </body></html>
-    """, NAVBAR=NAVBAR)
+    """ + TOOLTIP_SCRIPT + FOOTER
+    )
 
 @app.route('/circuit', methods=['GET', 'POST'])
 def circuit_panel():
@@ -280,21 +345,22 @@ def circuit_panel():
             f"<li>{op} <form method='post' style='display:inline;'><button type='submit' name='action' value='delete_op_{i}' style='color:#f55;background:none;border:none;cursor:pointer;' title='Eliminar operación'>&#10060;</button></form></li>"
             for i, op in enumerate(circuit_operations)
         ) + "</ul>"
-    return render_template_string(f"""
-    {BOOTSTRAP_HEAD}
-    {NAVBAR}
-    <div class='container'>
+    return render_template_string(
+        BOOTSTRAP_HEAD +
+        NAVBAR +
+        f"""
+    <div class='container fade-in'>
       <div class='row'>
         <div class='col-md-8 offset-md-2'>
           <div class='card shadow'>
             <div class='card-body'>
-              <h2 class='card-title'>Panel de Circuito Cuántico</h2>
+              <h2 class='card-title'><i class='bi bi-diagram-3'></i> Panel de Circuito Cuántico</h2>
               <p>Construye y visualiza tu circuito cuántico aquí.</p>
               <div class='feedback'>{msg}</div>
               {add_gate_form}
               {reset_form}
               <h5>Operaciones actuales:</h5>
-              {ops_html}
+              <div class='table-responsive'>{ops_html}</div>
               <h5>Visualización del circuito:</h5>
               {img_html}
             </div>
@@ -302,8 +368,8 @@ def circuit_panel():
         </div>
       </div>
     </div>
-    </body></html>
-    """, NAVBAR=NAVBAR)
+    """ + FOOTER
+    )
 
 @app.route('/visualization', methods=['GET', 'POST'])
 def visualization_panel():
@@ -403,15 +469,16 @@ def visualization_panel():
         html += f"<b>Total de qubits:</b> {len(qubit_names)}<br>"
     else:
         html = "<i>Se requieren al menos dos qubits para visualización global.</i>"
-    return render_template_string(f"""
-    {BOOTSTRAP_HEAD}
-    {NAVBAR}
-    <div class='container'>
+    return render_template_string(
+        BOOTSTRAP_HEAD +
+        NAVBAR +
+        f"""
+    <div class='container fade-in'>
       <div class='row'>
         <div class='col-md-10 offset-md-1'>
           <div class='card shadow'>
             <div class='card-body'>
-              <h2 class='card-title'>Panel de Visualización</h2>
+              <h2 class='card-title'><i class='bi bi-bar-chart'></i> Panel de Visualización</h2>
               <p>Visualiza el estado cuántico (esfera de Bloch, matriz de densidad global, coherencia, etc.).</p>
               {html}
             </div>
@@ -419,8 +486,8 @@ def visualization_panel():
         </div>
       </div>
     </div>
-    </body></html>
-    """, NAVBAR=NAVBAR)
+    """ + FOOTER
+    )
 
 @app.route('/download_img', methods=['POST'])
 def download_img():
@@ -513,17 +580,18 @@ def simulate_panel():
         <button type='submit' class='btn btn-primary'>Descargar histograma</button>
     </form>
     """ if hist_b64 else ''
-    return render_template_string(f"""
-    {BOOTSTRAP_HEAD}
-    {NAVBAR}
-    <div class='container'>
+    return render_template_string(
+        BOOTSTRAP_HEAD +
+        NAVBAR +
+        f"""
+    <div class='container fade-in'>
       <div class='row'>
         <div class='col-md-8 offset-md-2'>
           <div class='card shadow'>
             <div class='card-body'>
-              <h2 class='card-title'>Panel de Simulación</h2>
+              <h2 class='card-title'><i class='bi bi-play-circle'></i> Panel de Simulación</h2>
               <form method='post' class='mb-3'>
-                <button type='submit' class='btn btn-success'>Ejecutar Simulación</button>
+                <button type='submit' class='btn btn-success'><i class='bi bi-play'></i> Ejecutar Simulación</button>
               </form>
               <div class='feedback'>{msg}</div>
               {result_html}
@@ -534,8 +602,8 @@ def simulate_panel():
         </div>
       </div>
     </div>
-    </body></html>
-    """, NAVBAR=NAVBAR)
+    """ + FOOTER
+    )
 
 @app.route('/dbtest', methods=['POST'])
 def dbtest():
