@@ -1326,6 +1326,20 @@ def export_panel():
     """ + FOOTER + FEEDBACK_BUTTON
     )
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 10000))
-    app.run(host="0.0.0.0", port=port)
+@app.route('/custom')
+def custom_route():
+    return """
+    <div class='container fade-in'>
+      <div class='row justify-content-center'>
+        <div class='col-md-8'>
+          <div class='card shadow'>
+            <div class='card-body'>
+              <h2 class='card-title mb-3'><i class='bi bi-star'></i> Ruta Personalizada</h2>
+              <p class='lead'>¡Esta es una ruta personalizada agregada exitosamente!</p>
+              <p>Puedes modificar este contenido según tus necesidades.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    """ + FOOTER + FEEDBACK_BUTTON
