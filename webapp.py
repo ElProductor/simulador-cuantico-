@@ -1343,3 +1343,28 @@ def custom_route():
       </div>
     </div>
     """ + FOOTER + FEEDBACK_BUTTON
+@app.route('/algorithms')
+def algorithms_panel():
+    return """
+    <div class='container fade-in'>
+      <div class='row justify-content-center'>
+        <div class='col-md-10'>
+          <div class='card shadow'>
+            <div class='card-body'>
+              <h2 class='card-title mb-3'><i class='bi bi-lightbulb'></i> Algoritmos Cuánticos</h2>
+              <p class='lead'>Panel de referencia para algoritmos cuánticos clásicos y modernos.</p>
+              <ul>
+                <li><b>Grover</b>: Búsqueda cuántica no estructurada.</li>
+                <li><b>Shor</b>: Factorización de enteros grandes.</li>
+                <li><b>Deutsch-Jozsa</b>: Distingue funciones balanceadas y constantes.</li>
+                <li><b>QFT</b>: Transformada de Fourier cuántica.</li>
+                <li><b>Teleportación</b>: Transferencia de estado cuántico.</li>
+                <li><b>Simón</b>, <b>VQE</b>, <b>QAOA</b> y más.</li>
+              </ul>
+              <p>Próximamente: ejemplos interactivos y visualización paso a paso.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    """ + FOOTER + FEEDBACK_BUTTON
