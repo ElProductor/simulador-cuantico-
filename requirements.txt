@@ -12,3 +12,5 @@ SQLAlchemy
 requests
 python-dotenv
 rich
+
+
