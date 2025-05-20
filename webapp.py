@@ -136,6 +136,7 @@ def build_navbar(active=None):
         ('simulate', 'Simular', 'bi-play-circle'),
         ('algorithms', 'Algoritmos', 'bi-lightbulb'),
         ('metrics', 'Métricas', 'bi-graph-up'),
+        ('classic', 'Clásica', 'bi-calculator'),
         ('glossary', 'Glosario', 'bi-book'),
         ('tutorial', 'Tutorial', 'bi-mortarboard'),
         ('decoherence', 'Decoherencia', 'bi-cloud-drizzle'),
@@ -273,6 +274,160 @@ def index():
               <form method='post' action='/dbtest'>
                 <button type='submit' class='btn btn-outline-secondary'><i class='bi bi-database-check'></i> Probar conexión a PostgreSQL</button>
               </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    """ + FOOTER + FEEDBACK_BUTTON
+    )
+
+@app.route('/classic', methods=['GET', 'POST'])
+def classic_panel():
+    """Panel para operaciones de computación clásica"""
+    msg = ''
+    if request.method == 'POST':
+        # Crear bit clásico
+        name = request.form.get('bit_name', '').strip()
+        # Eliminar bit
+        delete_name = request.form.get('delete_bit', '').strip()
+        action = request.form.get('action', '')
+        operation = request.form.get('operation', '')
+        
+        if name and not action:
+            if name in qubits:
+                msg = f"<span style='color:red'>El bit '{name}' ya existe.</span>"
+            else:
+                interpret(f"BIT {name}")
+                msg = f"<span style='color:green'>Bit '{name}' creado.</span>"
+        elif action == 'delete' and delete_name:
+            if delete_name in qubits:
+                interpret(f"DELETE {delete_name}")
+                msg = f"<span style='color:green'>Bit '{delete_name}' eliminado.</span>"
+            else:
+                msg = f"<span style='color:red'>El bit '{delete_name}' no existe.</span>"
+        elif action == 'delete' and not delete_name:
+            msg = "<span style='color:red'>Selecciona un bit para eliminar.</span>"
+        elif action == 'reset_all':
+            interpret("RESETALL")
+            msg = "<span style='color:green'>Todos los bits fueron reseteados.</span>"
+        elif operation and action == 'operate':
+            bit1 = request.form.get('bit1', '')
+            bit2 = request.form.get('bit2', '')
+            if bit1 and bit2 and bit1 in qubits and bit2 in qubits:
+                interpret(f"{operation.upper()} {bit1} {bit2}")
+                msg = f"<span style='color:green'>Operación {operation} realizada entre {bit1} y {bit2}.</span>"
+            else:
+                msg = "<span style='color:red'>Selecciona bits válidos para operar.</span>"
+    
+    return render_template_string(
+        BOOTSTRAP_HEAD +
+        build_navbar(active='classic') +
+        """
+    <div class='container fade-in'>
+      <div class='row justify-content-center'>
+        <div class='col-md-10'>
+          <div class='card shadow'>
+            <div class='card-body'>
+              <h1 class='card-title mb-3'><i class='bi bi-calculator'></i> Computación Clásica</h1>
+              <p class='lead'>Administra bits clásicos y realiza operaciones lógicas avanzadas.</p>
+              
+              <div class='mb-4'>""" + msg + """</div>
+              
+              <div class='row'>
+                <div class='col-md-6'>
+                  <div class='card mb-4'>
+                    <div class='card-header bg-primary text-white'>
+                      <i class='bi bi-plus-circle'></i> Administración de Bits
+                    </div>
+                    <div class='card-body'>
+                      <form method='post'>
+                        <div class='mb-3'>
+                          <label class='form-label'>Nombre del bit:</label>
+                          <input type='text' class='form-control' name='bit_name' required>
+                        </div>
+                        <button type='submit' class='btn btn-primary'><i class='bi bi-plus-circle'></i> Crear bit</button>
+                      </form>
+                      
+                      <hr>
+                      
+                      <form method='post'>
+                        <div class='mb-3'>
+                          <label class='form-label'>Bit a eliminar:</label>
+                          <select class='form-select' name='delete_bit'>
+                            <option value=''>Selecciona un bit</option>""" +
+                            ''.join(f"<option value='{bit}'>{bit}</option>" for bit in qubits.keys()) +
+                            """
+                          </select>
+                        </div>
+                        <input type='hidden' name='action' value='delete'>
+                        <button type='submit' class='btn btn-danger'><i class='bi bi-trash'></i> Eliminar bit</button>
+                      </form>
+                      
+                      <hr>
+                      
+                      <form method='post'>
+                        <input type='hidden' name='action' value='reset_all'>
+                        <button type='submit' class='btn btn-warning'><i class='bi bi-arrow-counterclockwise'></i> Resetear todo</button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+                
+                <div class='col-md-6'>
+                  <div class='card'>
+                    <div class='card-header bg-success text-white'>
+                      <i class='bi bi-code-square'></i> Operaciones Lógicas
+                    </div>
+                    <div class='card-body'>
+                      <form method='post'>
+                        <div class='mb-3'>
+                          <label class='form-label'>Bit 1:</label>
+                          <select class='form-select' name='bit1'>
+                            <option value=''>Selecciona bit 1</option>""" +
+                            ''.join(f"<option value='{bit}'>{bit}</option>" for bit in qubits.keys()) +
+                            """
+                          </select>
+                        </div>
+                        
+                        <div class='mb-3'>
+                          <label class='form-label'>Bit 2:</label>
+                          <select class='form-select' name='bit2'>
+                            <option value=''>Selecciona bit 2</option>""" +
+                            ''.join(f"<option value='{bit}'>{bit}</option>" for bit in qubits.keys()) +
+                            """
+                          </select>
+                        </div>
+                        
+                        <div class='mb-3'>
+                          <label class='form-label'>Operación:</label>
+                          <select class='form-select' name='operation'>
+                            <option value='and'>AND</option>
+                            <option value='or'>OR</option>
+                            <option value='xor'>XOR</option>
+                            <option value='nand'>NAND</option>
+                            <option value='nor'>NOR</option>
+                          </select>
+                        </div>
+                        
+                        <input type='hidden' name='action' value='operate'>
+                        <button type='submit' class='btn btn-success'><i class='bi bi-play-fill'></i> Ejecutar Operación</button>
+                      </form>
+                      
+                      <div class='mt-4'>
+                        <h5><i class='bi bi-info-circle'></i> Ayuda</h5>
+                        <ul class='list-group'>
+                          <li class='list-group-item'><b>AND:</b> Resultado 1 solo si ambos bits son 1</li>
+                          <li class='list-group-item'><b>OR:</b> Resultado 1 si al menos un bit es 1</li>
+                          <li class='list-group-item'><b>XOR:</b> Resultado 1 si los bits son diferentes</li>
+                          <li class='list-group-item'><b>NAND:</b> Negación de AND</li>
+                          <li class='list-group-item'><b>NOR:</b> Negación de OR</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
