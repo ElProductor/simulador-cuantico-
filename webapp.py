@@ -45,6 +45,12 @@ app = Flask(__name__)
 
 # Verificar la conexión a la base de datos durante el inicio
 def check_database_connection():
+    """
+    Verifica la conexión a la base de datos con manejo robusto de errores.
+    
+    Returns:
+        bool: True si la conexión es exitosa o se configuró por defecto
+    """
     logger.info("Verificando conexión a la base de datos durante el inicio")
     try:
         import psycopg2
@@ -83,14 +89,20 @@ def check_database_connection():
         logger.error(f"No se pudo conectar a la base de datos después de {max_retries} intentos")
         logger.warning("La aplicación continuará ejecutándose sin funcionalidades de base de datos")
         return False
-    except ImportError:
-        logger.warning("Módulo psycopg2 no instalado. La aplicación funcionará sin base de datos.")
+    except ImportError as e:
+        logger.warning(f"Módulo psycopg2 no instalado: {str(e)}. La aplicación funcionará sin base de datos.")
         # Configurar valores por defecto para evitar errores
         os.environ['DATABASE_URL'] = "postgresql://localhost:5432/quantum_sim"
         logger.info("Configurada URL de base de datos por defecto")
         return True
+    except psycopg2.OperationalError as e:
+        logger.error(f"Error operacional de la base de datos: {str(e)}")
+        return False
+    except psycopg2.ProgrammingError as e:
+        logger.error(f"Error de programación en la base de datos: {str(e)}")
+        return False
     except Exception as e:
-        logger.error(f"Error inesperado al verificar la base de datos: {e}")
+        logger.error(f"Error inesperado al verificar la base de datos: {str(e)}", exc_info=True)
         return False
 
 # Intentar verificar la conexión a la base de datos al inicio, pero no bloquear el arranque
@@ -1140,24 +1152,48 @@ def test_db_connection():
 
 @app.route('/api/health')
 def health_check():
-    """Endpoint de diagnóstico para verificar el estado del servicio"""
+    """
+    Endpoint de diagnóstico para verificar el estado del servicio
+    
+    Returns:
+        JSON con estado general y detalles de dependencias
+    """
     logger.info("Verificando estado del servicio")
     
-    # Verificar dependencias críticas
+    # Verificar dependencias críticas con más detalle
     dependencies = {
-        'matplotlib': 'ok',
-        'numpy': 'ok',
-        'flask': 'ok',
-        'interpreter': 'ok',
-        'database': 'unknown'
+        'matplotlib': {
+            'status': 'ok',
+            'version': 'unknown'
+        },
+        'numpy': {
+            'status': 'ok',
+            'version': 'unknown'
+        },
+        'flask': {
+            'status': 'ok',
+            'version': 'unknown'
+        },
+        'interpreter': {
+            'status': 'ok',
+            'version': 'unknown'
+        },
+        'database': {
+            'status': 'unknown',
+            'connection_string': 'hidden'
+        }
     }
     
-    # Verificar conexión a la base de datos
+    # Verificar conexión a la base de datos con más detalle
     try:
         import psycopg2
         DATABASE_URL = os.getenv("DATABASE_URL")
         
         if DATABASE_URL:
+            # Ocultar credenciales en el log
+            safe_url = DATABASE_URL.split('@')[1] if '@' in DATABASE_URL else DATABASE_URL
+            dependencies['database']['connection_string'] = safe_url
+            
             # Convertir URL si es necesario
             if DATABASE_URL.startswith('postgres://'):
                 DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
@@ -1165,13 +1201,35 @@ def health_check():
             # Intentar conexión con timeout corto
             try:
                 conn = psycopg2.connect(DATABASE_URL, connect_timeout=5)
+                dependencies['database'].update({
+                    'status': 'ok',
+                    'server_version': conn.server_version,
+                    'transaction_status': conn.get_transaction_status()
+                })
                 conn.close()
-                dependencies['database'] = 'ok'
+            except psycopg2.OperationalError as db_error:
+                dependencies['database'].update({
+                    'status': f'error: {type(db_error).__name__}',
+                    'error_details': str(db_error)
+                })
+                logger.warning(f"Error operacional en health check: {type(db_error).__name__} - {db_error}")
+            except psycopg2.ProgrammingError as db_error:
+                dependencies['database'].update({
+                    'status': f'error: {type(db_error).__name__}',
+                    'error_details': str(db_error)
+                })
+                logger.warning(f"Error de programación en health check: {type(db_error).__name__} - {db_error}")
             except Exception as db_error:
-                dependencies['database'] = f'error: {str(db_error)}'
-                logger.warning(f"Error de conexión a la base de datos en health check: {db_error}")
+                dependencies['database'].update({
+                    'status': f'error: {type(db_error).__name__}',
+                    'error_details': str(db_error)
+                })
+                logger.error(f"Error inesperado en health check: {type(db_error).__name__} - {db_error}", exc_info=True)
         else:
-            dependencies['database'] = 'not_configured'
+            dependencies['database'].update({
+                'status': 'not_configured',
+                'error_details': 'DATABASE_URL no configurada'
+            })
     except ImportError:
         dependencies['database'] = 'driver_missing'
     

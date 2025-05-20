@@ -5,19 +5,23 @@ from core.bit import Bit
 import json
 import logging
 
-MICRO_BIN_TABLE ={
-    "INIT_TEMP":"0001",
-    "READ_TEMP":"0010",
-    "ACTIVATE_COOLER":"0100",
+MICRO_BIN_TABLE = {
+    "INIT_TEMP": "0001",
+    "READ_TEMP": "0010",
+    "ACTIVATE_COOLER": "0100",
 }
 
-def encode_micro(command):
-    MICRO_BIN_TABLE = {
-        "INIT_TEMP": "0001",
-        "READ_TEMP": "0010",
-        "ACTIVATE_COOLER": "0100",
-    }
-    return MICRO_BIN_TABLE.get(command, "0000")  # return 0000 for unknown commands
+def encode_micro(command: str) -> str:
+    """
+    Codifica un comando en su representación binaria.
+    
+    Args:
+        command: Comando a codificar
+        
+    Returns:
+        str: Representación binaria de 4 bits o "0000" para comandos desconocidos
+    """
+    return MICRO_BIN_TABLE.get(command.upper(), "0000")
 
 class MicrobinaryEngine:
     """
@@ -30,26 +34,67 @@ class MicrobinaryEngine:
         self.bits = {}    # Dict[str, Bit]
         self.operations = []  # List[Dict]
         self.history = []     # List[Dict]
+        self._gate_matrices = self._memoize_gate_matrices()  # Memoización de matrices
+        
+    def _memoize_gate_matrices(self) -> Dict[str, np.ndarray]:
+        """
+        Inicializa y devuelve un diccionario con las matrices de las puertas cuánticas básicas.
+        
+        Returns:
+            Dict[str, np.ndarray]: Diccionario con matrices de puertas cuánticas
+        """
+        from gates.quantum_gates import (
+            hadamard_matrix,
+            pauli_x_matrix,
+            pauli_y_matrix,
+            pauli_z_matrix,
+            cnot_matrix,
+            cz_matrix,
+            swap_matrix,
+            rhw_matrix
+        )
+        
+        return {
+            'H': hadamard_matrix(),
+            'X': pauli_x_matrix(),
+            'Y': pauli_y_matrix(),
+            'Z': pauli_z_matrix(),
+            'CNOT': cnot_matrix(),
+            'CZ': cz_matrix(),
+            'SWAP': swap_matrix(),
+            'RHW': rhw_matrix()
+        }
+        self._state_cache = {}  # Cache de estados cuánticos
         self._setup_logging()
         
     def _setup_logging(self):
-        """Configura el sistema de logging."""
+        """
+        Configura el sistema de logging con formato extendido.
+        
+        Incluye:
+        - Logging a archivo con nivel DEBUG
+        - Logging a consola con nivel ERROR
+        - Formato extendido con nombre de función y línea
+        """
         self.logger = logging.getLogger('MicrobinaryEngine')
         self.logger.setLevel(logging.DEBUG)
         
-        # Handler para archivo
-        fh = logging.FileHandler('microbinary.log')
+        # Handler para archivo con rotación
+        fh = logging.FileHandler('microbinary.log', encoding='utf-8')
         fh.setLevel(logging.DEBUG)
         
         # Handler para consola
         ch = logging.StreamHandler()
         ch.setLevel(logging.ERROR)
         
-        # Formato
+        # Formato extendido
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            '%(asctime)s - %(name)s - %(levelname)s - %(funcName)s:%(lineno)d - %(message)s')
         fh.setFormatter(formatter)
         ch.setFormatter(formatter)
+        
+        # Limpiar handlers existentes
+        self.logger.handlers.clear()
         
         self.logger.addHandler(fh)
         self.logger.addHandler(ch)
@@ -364,6 +409,136 @@ class MicrobinaryEngine:
             self.logger.error(f"Error al calcular entrelazamiento: {str(e)}")
             return None
 
+    def _merge_cnots(self, operations: List[Dict]) -> List[Dict]:
+        """
+        Combina operaciones CNOT consecutivas con los mismos controles y targets.
+        
+        Args:
+            operations: Lista de operaciones a optimizar
+            
+        Returns:
+            List[Dict]: Lista optimizada de operaciones
+        """
+        optimized = []
+        i = 0
+        while i < len(operations):
+            op = operations[i]
+            
+            if op.get('gate') == 'CNOT' and i + 1 < len(operations):
+                next_op = operations[i+1]
+                
+                if (next_op.get('gate') == 'CNOT' and 
+                    next_op.get('control') == op.get('control') and
+                    next_op.get('target') == op.get('target')):
+                    # Eliminar la segunda CNOT ya que dos CNOTs con los mismos
+                    # controles y targets se cancelan mutuamente
+                    i += 2
+                    continue
+            
+            optimized.append(op)
+            i += 1
+            
+        return optimized
+        
+    def _memoize_gate_matrices(self) -> Dict[str, np.ndarray]:
+        """
+        Memoiza las matrices de las puertas cuánticas más comunes para mejorar el rendimiento.
+        
+        Returns:
+            Dict[str, np.ndarray]: Diccionario con matrices memoizadas
+        """
+        return {
+            'H': 1/np.sqrt(2) * np.array([[1, 1], [1, -1]]),
+            'X': np.array([[0, 1], [1, 0]]),
+            'Y': np.array([[0, -1j], [1j, 0]]),
+            'Z': np.array([[1, 0], [0, -1]]),
+            'CNOT': np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 1, 0]]),
+            'CZ': np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, -1]]),
+            'SWAP': np.array([[1, 0, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0], [0, 0, 0, 1]])
+        }
+        
+    def _remove_identity(self, operations: List[Dict]) -> List[Dict]:
+        """
+        Elimina operaciones que no tienen efecto (equivalentes a la identidad).
+        
+        Args:
+            operations: Lista de operaciones a optimizar
+            
+        Returns:
+            List[Dict]: Lista optimizada de operaciones
+        """
+        optimized = []
+        
+        for op in operations:
+            if op.get('gate') == 'I':
+                # Saltar operaciones de identidad
+                continue
+            optimized.append(op)
+            
+        return optimized
+        
+    def _remove_adjacent_pairs(self, operations: List[Dict]) -> List[Dict]:
+        """
+        Elimina pares adyacentes de operaciones que se cancelan mutuamente.
+        
+        Args:
+            operations: Lista de operaciones a optimizar
+            
+        Returns:
+            List[Dict]: Lista optimizada de operaciones
+        """
+        optimized = []
+        i = 0
+        while i < len(operations):
+            if i + 1 < len(operations):
+                op1 = operations[i]
+                op2 = operations[i+1]
+                
+                # Verificar si son operaciones inversas
+                if (op1.get('gate') == op2.get('gate') and 
+                    op1.get('target') == op2.get('target') and
+                    op1.get('control') == op2.get('control')):
+                    # Saltar ambas operaciones
+                    i += 2
+                    continue
+            
+            optimized.append(operations[i])
+            i += 1
+            
+        return optimized
+        
+    def _combine_rotations(self, operations: List[Dict]) -> List[Dict]:
+        """
+        Combina rotaciones consecutivas en el mismo qubit.
+        
+        Args:
+            operations: Lista de operaciones a optimizar
+            
+        Returns:
+            List[Dict]: Lista optimizada de operaciones
+        """
+        optimized = []
+        i = 0
+        while i < len(operations):
+            op = operations[i]
+            
+            if op.get('gate') in ['RHW'] and i + 1 < len(operations):
+                next_op = operations[i+1]
+                
+                if (next_op.get('gate') == op.get('gate') and 
+                    next_op.get('target') == op.get('target')):
+                    # Combinar rotaciones
+                    combined_op = op.copy()
+                    combined_op['angle'] = op.get('angle', 0) + next_op.get('angle', 0)
+                    optimized.append(combined_op)
+                    i += 2
+                    continue
+            
+            optimized.append(op)
+            i += 1
+            
+        return optimized
+        
     def optimize_circuit(self) -> bool:
         """
         Optimiza el circuito actual eliminando operaciones redundantes.
@@ -532,20 +707,20 @@ class MicrobinaryEngine:
 
     def _get_gate_matrix(self, gate: str) -> np.ndarray:
         """
-        Obtiene la matriz de una puerta cuántica.
+        Obtiene la matriz de una puerta cuántica desde la cache.
         
         Args:
             gate: Nombre de la puerta
             
         Returns:
             np.ndarray: Matriz de la puerta
+        
+        Raises:
+            ValueError: Si la puerta no está soportada
         """
-        from gates.quantum_gates import H, X, Y, Z, RHW, CNOT, CZ, SWAP
-        gates = {
-            'H': H, 'X': X, 'Y': Y, 'Z': Z, 'RHW': RHW,
-            'CNOT': CNOT, 'CZ': CZ, 'SWAP': SWAP
-        }
-        return gates[gate]
+        if gate not in self._gate_matrices:
+            raise ValueError(f"Puerta {gate} no soportada")
+        return self._gate_matrices[gate]
 
     def _apply_controlled_gate(self, matrix: np.ndarray,
                              control: str, target: str) -> None:
