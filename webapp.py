@@ -103,7 +103,25 @@ except Exception as e:
 # Configurar manejo de errores para la aplicación
 @app.errorhandler(500)
 def server_error(e):
-    logger.error(f"Error interno del servidor: {e}")
+    # Registrar información detallada del error
+    import traceback
+    exc_type, exc_value, exc_traceback = sys.exc_info()
+    error_details = {
+        'type': str(exc_type),
+        'message': str(exc_value),
+        'traceback': ''.join(traceback.format_tb(exc_traceback)),
+        'request': {
+            'method': request.method,
+            'url': request.url,
+            'headers': dict(request.headers),
+            'data': request.data.decode('utf-8') if request.data else None,
+            'form': dict(request.form),
+            'args': dict(request.args)
+        },
+        'timestamp': datetime.datetime.now().isoformat()
+    }
+    
+    logger.error(f"Error interno del servidor - Detalles: {json.dumps(error_details, indent=2)}")
     return render_template_string("""
     <!DOCTYPE html>
     <html>
