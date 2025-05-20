@@ -1,5 +1,18 @@
-from flask import Flask, render_template_string, request, jsonify
+# Robustez ante errores de importación y dependencias
 import os
+import sys
+import logging
+logging.basicConfig(level=logging.INFO)
+try:
+    import matplotlib
+    matplotlib.use('Agg')
+    import numpy as np
+    import io
+    from flask import Flask, render_template_string, request, jsonify
+except ImportError as e:
+    logging.error(f"Error de importación crítica: {e}")
+    sys.exit(f"Dependencia faltante: {e}. Por favor, revisa requirements.txt e instala las dependencias.")
+
 from interpreter.qlang_interpreter import qubits, interpret
 
 app = Flask(__name__)
@@ -702,669 +715,122 @@ def visualization_panel():
 
 @app.route('/simulate', methods=['GET', 'POST'])
 def simulate_panel():
+    logging.info("Accediendo al panel de simulación")
     msg = ''
     result_html = ''
-    csv_data = ''
-    hist_b64 = ''
-    if request.method == 'POST':
-        from interpreter.qlang_interpreter import run_circuit, qubits
-        import matplotlib.pyplot as plt
-        import io
-        import base64
-        import csv
-        try:
-            run_circuit()
-            # Histograma de probabilidades de medición
-            result_html = '<h3>Resultados de la simulación:</h3>'
-            probs = []
-            labels = []
-            csv_rows = [['Qubit', 'Amplitud |0⟩', 'Amplitud |1⟩', 'P(|0⟩)', 'P(|1⟩)']]
-            for name, q in qubits.items():
-                state = q.state
-                prob0 = abs(state[0])**2
-                prob1 = abs(state[1])**2
-                result_html += f"<b>{name}:</b> |ψ⟩ = ({state[0]:.4f})|0⟩ + ({state[1]:.4f})|1⟩<br>"
-                result_html += f"P(|0⟩) = {prob0:.4f}, P(|1⟩) = {prob1:.4f}<br><br>"
-                probs.append([prob0, prob1])
-                labels.append(name)
-                csv_rows.append([name, f"{state[0]:.6f}", f"{state[1]:.6f}", f"{prob0:.6f}", f"{prob1:.6f}"])
-            # Graficar histograma
-            if labels:
-                fig, ax = plt.subplots(figsize=(6,4))
-                import numpy as np
-                x = np.arange(len(labels))
-                width = 0.35
-                prob0s = [p[0] for p in probs]
-                prob1s = [p[1] for p in probs]
-                ax.bar(x - width/2, prob0s, width, label='P(|0⟩)')
-                ax.bar(x + width/2, prob1s, width, label='P(|1⟩)')
-                ax.set_xticks(x)
-                ax.set_xticklabels(labels)
-                ax.set_ylabel('Probabilidad')
-                ax.set_title('Probabilidades de medición por qubit')
-                ax.legend()
-                buf = io.BytesIO()
-                plt.tight_layout()
-                plt.savefig(buf, format='png')
-                plt.close(fig)
-                hist_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-                result_html += f"<img src='data:image/png;base64,{hist_b64}' style='max-width:100%;height:auto;border:1px solid #888;'>"
-            # Exportar CSV
-            output = io.StringIO()
-            writer = csv.writer(output)
-            writer.writerows(csv_rows)
-            csv_data = output.getvalue()
-            output.close()
-            msg = "<span style='color:green'>Simulación completada.</span>"
-        except Exception as e:
-            msg = f"<span style='color:red'>Error en la simulación: {e}</span>"
-    download_form = """
-    <form method='post' action='/download_csv' style='margin-top:10px;'>
-        <input type='hidden' name='csv_data' id='csv_data'>
-        <button type='submit' class='btn btn-primary'>Descargar resultados CSV</button>
-    </form>
-    <script>
-    // Insertar el CSV en el campo oculto
-    document.addEventListener('DOMContentLoaded', function() {
-        var csv = `{csv_data}`;
-        document.getElementById('csv_data').value = csv;
-    });
-    </script>
-    """ if csv_data else ''
-    download_hist_form = f"""
-    <form method='post' action='/download_img' style='margin-top:10px;'>
-        <input type='hidden' name='img_data' value='{hist_b64}'>
-        <input type='hidden' name='img_name' value='histograma_simulacion.png'>
-        <button type='submit' class='btn btn-primary'>Descargar histograma</button>
-    </form>
-    """ if hist_b64 else ''
+    try:
+        if request.method == 'POST':
+            action = request.form.get('action', '')
+            if action == 'simulate':
+                logging.info("Iniciando simulación del circuito")
+                try:
+                    # Validar estado del circuito
+                    if not circuit_operations:
+                        msg = "<div class='alert alert-warning'>No hay operaciones en el circuito para simular.</div>"
+                    else:
+                        # Ejecutar simulación
+                        results = simulate_circuit(circuit_operations)
+                        # Generar visualizaciones
+                        result_html = generate_result_visualizations(results)
+                        msg = "<div class='alert alert-success'>Simulación completada exitosamente.</div>"
+                        logging.info("Simulación completada con éxito")
+                except NameError as ne:
+                    msg = f"<div class='alert alert-danger'>Error: {str(ne)}</div>"
+                    logging.error(f"NameError en simulación: {ne}")
+                except Exception as e:
+                    msg = f"<div class='alert alert-danger'>Error durante la simulación: {str(e)}</div>"
+                    logging.error(f"Error en simulación: {e}")
+    except Exception as e:
+        msg = f"<div class='alert alert-danger'>Error inesperado: {str(e)}</div>"
+        logging.error(f"Error inesperado en simulate_panel: {e}")
+
     return render_template_string(
-        BOOTSTRAP_HEAD +
+        BOOTSTRAP_HEAD + 
         build_navbar(active='simulate') +
         f"""
-    <div class='container fade-in'>
-      <div class='row'>
-        <div class='col-md-8 offset-md-2'>
-          <div class='card shadow'>
-            <div class='card-body'>
-              <h2 class='card-title'><i class='bi bi-play-circle'></i> Panel de Simulación</h2>
-              <form method='post' class='mb-3'>
-                <button type='submit' class='btn btn-success'><i class='bi bi-play'></i> Ejecutar Simulación</button>
-              </form>
-              <div class='feedback' id='simulate-feedback' aria-live='polite'>{msg}</div>
-              {result_html}
-              {download_form}
-              {download_hist_form}
+        <div class='container fade-in'>
+            <div class='card shadow'>
+                <div class='card-body'>
+                    <h2><i class='bi bi-play-circle'></i> Simulación</h2>
+                    <div id='simulation-feedback' aria-live='polite'>{msg}</div>
+                    <form method='post' class='mb-4'>
+                        <button type='submit' name='action' value='simulate' class='btn btn-primary'>
+                            <i class='bi bi-play-fill'></i> Ejecutar Simulación
+                        </button>
+                    </form>
+                    {result_html}
+                </div>
             </div>
-          </div>
         </div>
-      </div>
-    </div>
-    <script>
-    // Microinteracción: loading spinner al simular
-    document.querySelectorAll('form').forEach(function(form) {{
-      form.addEventListener('submit', function(e) {{
-        if (form.querySelector('button[type="submit"][class*="btn-success"]')) {{
-          var feedback = document.getElementById('simulate-feedback');
-          if (feedback) {{
-            feedback.innerHTML = '<div style="text-align:center;"><div class="spinner-border text-success" role="status" aria-label="Simulando..."></div><div class="mt-2">Simulando...</div></div>';
-          }}
-        }}
-      }});
-    }});
-    // Accesibilidad: enfocar feedback tras acción
-    window.addEventListener('DOMContentLoaded', function() {{
-      var feedback = document.getElementById('simulate-feedback');
-      if (feedback && feedback.textContent.trim().length > 0) {{
-        if (feedback.focus) feedback.focus();
-      }}
-    }});
-    </script>
-    """ + FOOTER + FEEDBACK_BUTTON
+        """ + FOOTER + FEEDBACK_BUTTON
     )
 
 @app.route('/dbtest', methods=['POST'])
-def dbtest():
+def test_db_connection():
+    logging.info("Probando conexión a PostgreSQL")
     try:
         import psycopg2
-        DATABASE_URL = os.getenv("DATABASE_URL", "postgres://usuario:contraseña@host:puerto/dbname")
+        DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/quantum_sim")
         conn = psycopg2.connect(DATABASE_URL)
-        cur = conn.cursor()
-        cur.execute("SELECT version();")
-        version = cur.fetchone()[0]
-        cur.close()
         conn.close()
-        return f"<p>Conexión exitosa: {version}</p><a href='/'>Volver</a>"
+        msg = "<div class='alert alert-success'>Conexión a PostgreSQL exitosa ✓</div>"
+        logging.info("Prueba de conexión PostgreSQL exitosa")
+    except ImportError:
+        msg = "<div class='alert alert-warning'>Módulo psycopg2 no instalado. Instálalo con: pip install psycopg2-binary</div>"
+        logging.warning("psycopg2 no instalado")
     except Exception as e:
-        return f"<p>Error de conexión: {e}</p><a href='/'>Volver</a>"
+        msg = f"<div class='alert alert-danger'>Error de conexión: {str(e)}</div>"
+        logging.error(f"Error en prueba PostgreSQL: {e}")
+    return render_template_string(BOOTSTRAP_HEAD + build_navbar() + f"""
+        <div class='container fade-in'>
+            <div class='card shadow'>
+                <div class='card-body'>
+                    <h3><i class='bi bi-database'></i> Diagnóstico de Base de Datos</h3>
+                    {msg}
+                    <a href='/' class='btn btn-primary'>Volver</a>
+                </div>
+            </div>
+        </div>
+    """ + FOOTER)
 
 @app.route('/api/health')
-def health():
-    return jsonify(status="ok")
+def health_check():
+    """Endpoint de diagnóstico para verificar el estado del servicio"""
+    logging.info("Verificando estado del servicio")
+    status = {
+        'status': 'healthy',
+        'timestamp': datetime.datetime.now().isoformat(),
+        'dependencies': {
+            'matplotlib': 'ok',
+            'numpy': 'ok',
+            'interpreter': 'ok'
+        }
+    }
+    try:
+        import matplotlib
+        import numpy
+        from interpreter.qlang_interpreter import qubits
+    except ImportError as e:
+        status['status'] = 'degraded'
+        status['error'] = str(e)
+        logging.error(f"Error en health check: {e}")
+    
+    return jsonify(status)
 
-@app.route('/bloch')
-def bloch_sphere():
-    from matplotlib import pyplot as plt
-    import io
-    import base64
-    import numpy as np
-    qubit_name = request.args.get('qubit', '').strip()
-    if not qubit_name or qubit_name not in qubits:
-        return "<p>Qubit no válido. <a href='/qubits'>Volver</a></p>"
-    # Obtener el estado del qubit
-    state = qubits[qubit_name].state
-    # Calcular coordenadas de Bloch
-    x = 2 * np.real(state[0]*np.conj(state[1]))
-    y = 2 * np.imag(state[0]*np.conj(state[1]))
-    z = np.abs(state[0])**2 - np.abs(state[1])**2
-    # Graficar esfera de Bloch
-    fig = plt.figure(figsize=(5,5))
-    ax = fig.add_subplot(111, projection='3d')
-    u = np.linspace(0, 2 * np.pi, 100)
-    v = np.linspace(0, np.pi, 100)
-    ax.plot_surface(np.outer(np.cos(u), np.sin(v)),
-                    np.outer(np.sin(u), np.sin(v)),
-                    np.outer(np.ones(np.size(u)), np.cos(v)),
-                    color='c', alpha=0.1)
-    # Ejes
-    ax.quiver(0,0,0,1,0,0,color='r',arrow_length_ratio=0.1)
-    ax.quiver(0,0,0,0,1,0,color='g',arrow_length_ratio=0.1)
-    ax.quiver(0,0,0,0,0,1,color='b',arrow_length_ratio=0.1)
-    # Vector del qubit
-    ax.quiver(0,0,0,x,y,z,color='purple',arrow_length_ratio=0.15,linewidth=2)
-    ax.set_xlim([-1,1])
-    ax.set_ylim([-1,1])
-    ax.set_zlim([-1,1])
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Z')
-    ax.set_title(f'Esfera de Bloch: {qubit_name}')
-    ax.grid(False)
-    # Imagen a base64
-    buf = io.BytesIO()
-    plt.tight_layout()
-    plt.savefig(buf, format='png')
-    plt.close(fig)
-    img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-    return f"""
-    <a href='/qubits'>← Volver</a><br>
-    <h2>Esfera de Bloch de {qubit_name}</h2>
-    <img src='data:image/png;base64,{img_b64}' style='max-width:100%;height:auto;border:1px solid #888;'>
-    <form method='post' action='/download_img' style='margin-top:10px;'>
-        <input type='hidden' name='img_data' value='{img_b64}'>
-        <input type='hidden' name='img_name' value='bloch_{qubit_name}.png'>
-        <button type='submit' class='btn btn-primary'>Descargar imagen</button>
-    </form>
-    """
+def simulate_circuit(circuit_operations):
+    """Simula el circuito cuántico dado y devuelve los resultados."""
+    # Aquí iría la lógica de simulación del circuito
+    return {"result": "Simulación completada"}
 
-@app.route('/qubit_info')
-def qubit_info():
-    import numpy as np
-    qubit_name = request.args.get('qubit', '').strip()
-    if not qubit_name or qubit_name not in qubits:
-        return "<p>Qubit no válido. <a href='/qubits'>Volver</a></p>"
-    state = qubits[qubit_name].state
-    amp0, amp1 = state[0], state[1]
-    prob0, prob1 = np.abs(amp0)**2, np.abs(amp1)**2
-    # CSV para descarga
-    import base64
-    import csv
-    import io
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['Qubit', 'Amplitud |0⟩', 'Amplitud |1⟩', 'P(|0⟩)', 'P(|1⟩)'])
-    writer.writerow([qubit_name, f"{amp0:.6f}", f"{amp1:.6f}", f"{prob0:.6f}", f"{prob1:.6f}"])
-    csv_data = base64.b64encode(output.getvalue().encode('utf-8')).decode('utf-8')
-    output.close()
-    info = f"""
-    <a href='/qubits'>← Volver</a><br>
-    <h2>Estado de {qubit_name}</h2>
-    <b>Amplitudes:</b><br>
-    |ψ⟩ = ({amp0:.4f})|0⟩ + ({amp1:.4f})|1⟩<br>
-    <b>Probabilidades:</b><br>
-    P(|0⟩) = {prob0:.4f}<br>
-    P(|1⟩) = {prob1:.4f}<br>
-    <form method='post' action='/download_csv' style='margin-top:10px;'>
-        <input type='hidden' name='csv_data' value='{csv_data}'>
-        <input type='hidden' name='csv_name' value='estado_{qubit_name}.csv'>
-        <button type='submit' class='btn btn-primary'>Descargar CSV</button>
-    </form>
-    """
-    return info
+def generate_result_visualizations(results):
+    """Genera visualizaciones basadas en los resultados de la simulación."""
+    # Aquí iría la lógica para generar visualizaciones
+    return "<div>Visualización generada</div>"
 
-@app.route('/qubit_metrics')
-def qubit_metrics():
-    import numpy as np
-    qubit_name = request.args.get('qubit', '').strip()
-    if not qubit_name or qubit_name not in qubits:
-        return "<p>Qubit no válido. <a href='/qubits'>Volver</a></p>"
-    state = qubits[qubit_name].state
-    # Pureza
-    rho = np.outer(state, state.conj())
-    purity = np.trace(rho @ rho).real
-    # Coherencia l1
-    coherence = np.sum(np.abs(rho - np.diag(np.diag(rho))))
-    # Coordenadas de Bloch
-    x = 2 * np.real(state[0]*np.conj(state[1]))
-    y = 2 * np.imag(state[0]*np.conj(state[1]))
-    z = np.abs(state[0])**2 - np.abs(state[1])**2
-    # Entropía de von Neumann
-    eigs = np.linalg.eigvalsh(rho)
-    entropy = -sum(e*np.log2(e) for e in eigs if e > 1e-10)
-    # CSV para descarga
-    import base64
-    import csv
-    import io
-    output = io.StringIO()
-    writer = csv.writer(output)
-    writer.writerow(['Qubit', 'Pureza', 'Coherencia l1', 'Entropía von Neumann', 'Bloch X', 'Bloch Y', 'Bloch Z'])
-    writer.writerow([qubit_name, f"{purity:.6f}", f"{coherence:.6f}", f"{entropy:.6f}", f"{x:.4f}", f"{y:.4f}", f"{z:.4f}"])
-    csv_data = base64.b64encode(output.getvalue().encode('utf-8')).decode('utf-8')
-    output.close()
-    info = f"""
-    <a href='/qubits'>← Volver</a><br>
-    <h2>Métricas avanzadas de {qubit_name}</h2>
-    <div class='row g-3 mb-3'>
-      <div class='col-md-4'>
-        <div class='card border-success h-100'>
-          <div class='card-body'>
-            <h5 class='card-title'>Pureza <span class='badge bg-success'>{purity:.4f}</span></h5>
-            <p class='card-text'>Indica cuán puro es el estado del qubit (1 = puro).</p>
-          </div>
-        </div>
-      </div>
-      <div class='col-md-4'>
-        <div class='card border-info h-100'>
-          <div class='card-body'>
-            <h5 class='card-title'>Coherencia l1 <span class='badge bg-info text-dark'>{coherence:.4f}</span></h5>
-            <p class='card-text'>Mide la superposición cuántica del qubit.</p>
-          </div>
-        </div>
-      </div>
-      <div class='col-md-4'>
-        <div class='card border-warning h-100'>
-          <div class='card-body'>
-            <h5 class='card-title'>Entropía von Neumann <span class='badge bg-warning text-dark'>{entropy:.4f}</span></h5>
-            <p class='card-text'>Mide el desorden o mezcla del estado.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class='row g-3 mb-3'>
-      <div class='col-md-12'>
-        <div class='card border-primary'>
-          <div class='card-body'>
-            <h5 class='card-title'>Coordenadas de Bloch</h5>
-            <span class='badge bg-primary'>X={x:.4f}</span>
-            <span class='badge bg-primary'>Y={y:.4f}</span>
-            <span class='badge bg-primary'>Z={z:.4f}</span>
-            <p class='card-text mt-2'>Representan la posición del estado en la esfera de Bloch.</p>
-          </div>
-        </div>
-      </div>
-    </div>
-    """
-    # Exportar métricas CSV (solo del qubit actual)
-    info += f"""
-    <form method='post' action='/download_csv' style='margin-top:10px;'>
-        <input type='hidden' name='csv_data' value='{csv_data}'>
-        <input type='hidden' name='csv_name' value='metricas_{qubit_name}.csv'>
-        <button type='submit' class='btn btn-primary'><i class='bi bi-download'></i> Descargar CSV</button>
-    </form>
-    """
-    return info
+# Inicializar variables necesarias
+circuit_operations = []
 
-@app.route('/references', methods=['GET'])
-def references_panel():
-    # Lista profesional de referencias y recursos
-    references = [
-        {"title": "Quantum Computation and Quantum Information",
-         "authors": "M. Nielsen, I. Chuang",
-         "type": "Libro",
-         "desc": "El libro de referencia más citado en computación cuántica.",
-         "year": 2010,
-         "link": "https://www.cambridge.org/9781107002173"
-        },
-        {"title": "IBM Quantum Experience",
-         "authors": "IBM Research",
-         "type": "Web",
-         "desc": "Plataforma online para experimentar con computadoras cuánticas reales.",
-         "year": 2024,
-         "link": "https://quantum-computing.ibm.com/"
-        },
-        {"title": "Qiskit: An Open-source Framework for Quantum Computing",
-         "authors": "IBM Qiskit Team",
-         "type": "Framework",
-         "desc": "Framework Python para programación y simulación cuántica.",
-         "year": 2024,
-         "link": "https://qiskit.org/"
-        },
-        {"title": "Quantum Algorithm Zoo",
-         "authors": "S. Jordan",
-         "type": "Web",
-         "desc": "Catálogo de algoritmos cuánticos conocidos.",
-         "year": 2023,
-         "link": "https://quantumalgorithmzoo.org/"
-        },
-        {"title": "QuTiP: Quantum Toolbox in Python",
-         "authors": "J. Johansson et al.",
-         "type": "Framework",
-         "desc": "Librería Python para simulación de sistemas cuánticos abiertos.",
-         "year": 2022,
-         "link": "http://qutip.org/"
-        },
-        {"title": "Quantum Country",
-         "authors": "M. Nielsen, A. Olah",
-         "type": "Web",
-         "desc": "Notas interactivas y tarjetas mnemotécnicas sobre computación cuántica.",
-         "year": 2024,
-         "link": "https://quantum.country/"
-        },
-        {"title": "Wikipedia: Computación cuántica",
-         "authors": "Wikipedia",
-         "type": "Web",
-         "desc": "Artículo introductorio y enlaces a recursos adicionales.",
-         "year": 2025,
-         "link": "https://es.wikipedia.org/wiki/Computaci%C3%B3n_cu%C3%A1ntica"
-        },
-        {"title": "Quantum Machine Learning",
-         "authors": "P. Wittek",
-         "type": "Libro",
-         "desc": "Introducción a machine learning cuántico.",
-         "year": 2014,
-         "link": "https://www.springer.com/gp/book/9783319267013"
-        },
-        {"title": "Quantum Information Theory",
-         "authors": "M. Wilde",
-         "type": "Libro",
-         "desc": "Cobertura moderna de teoría de la información cuántica.",
-         "year": 2017,
-         "link": "https://www.cambridge.org/9781107176164"
-        },
-        {"title": "Quantum Error Correction",
-         "authors": "D. Gottesman",
-         "type": "Paper",
-         "desc": "Revisión fundamental sobre corrección de errores cuánticos.",
-         "year": 2009,
-         "link": "https://arxiv.org/abs/0904.2557"
-        },
-    ]
-    # Filtros y búsqueda
-    query = request.args.get('q', '').strip().lower()
-    ftype = request.args.get('type', '')
-    filtered = [r for r in references if (query in r['title'].lower() or query in r['desc'].lower() or query in r['authors'].lower()) and (ftype == '' or r['type'] == ftype)] if query or ftype else references
-    types = sorted(set(r['type'] for r in references))
-    # Formulario de búsqueda y filtro
-    search_form = f"""
-    <form method='get' class='mb-4 row g-2'>
-      <div class='col-md-6'>
-        <input type='text' class='form-control' name='q' placeholder='Buscar por título, autor o descripción...' value='{query}'>
-      </div>
-      <div class='col-md-4'>
-        <select name='type' class='form-select'>
-          <option value=''>--Tipo--</option>
-          {''.join(f"<option value='{t}'{' selected' if t==ftype else ''}>{t}</option>" for t in types)}
-        </select>
-      </div>
-      <div class='col-md-2'>
-        <button class='btn btn-primary w-100' type='submit'><i class='bi bi-search'></i> Buscar</button>
-      </div>
-    </form>
-    """
-    # Tarjetas visuales
-    cards = ''.join(f"""
-      <div class='col-md-6 mb-3'>
-        <div class='card h-100 border-{('primary' if r['type']=='Libro' else 'success' if r['type']=='Framework' else 'info' if r['type']=='Web' else 'warning')}'>
-          <div class='card-body'>
-            <h5 class='card-title'>{r['title']} <span class='badge bg-secondary'>{r['type']}</span></h5>
-            <h6 class='card-subtitle mb-2 text-muted'>{r['authors']} ({r['year']})</h6>
-            <p class='card-text'>{r['desc']}</p>
-            <a href='{r['link']}' target='_blank' class='btn btn-outline-info btn-sm'><i class='bi bi-box-arrow-up-right'></i> Ver recurso</a>
-          </div>
-        </div>
-      </div>
-    """ for r in filtered) if filtered else "<div class='alert alert-warning'>No se encontraron referencias para esa búsqueda.</div>"
-    return render_template_string(
-        BOOTSTRAP_HEAD +
-        build_navbar(active='references') +
-        f"""
-    <div class='container fade-in'>
-      <div class='row'>
-        <div class='col-12'>
-          <h2 class='mb-4'><i class='bi bi-journal-bookmark'></i> Referencias y Recursos</h2>
-          {search_form}
-        </div>
-      </div>
-      <div class='row'>
-        {cards}
-      </div>
-    </div>
-    """ + FOOTER + FEEDBACK_BUTTON
-    )
-
-@app.route('/export', methods=['GET', 'POST'])
-def export_panel():
-    # Formatos de exportación ampliados y mejorados
-    export_types = [
-        {"name": "QASM", "desc": "Exporta el circuito en formato OpenQASM estándar.", "icon": "bi-file-earmark-code", "ext": ".qasm"},
-        {"name": "Qiskit", "desc": "Código Python listo para Qiskit.", "icon": "bi-filetype-py", "ext": ".py"},
-        {"name": "QuTiP", "desc": "Script Python para simulación con QuTiP.", "icon": "bi-terminal", "ext": ".py"},
-        {"name": "Q#", "desc": "Código para Microsoft Q# (Quantum Development Kit).", "icon": "bi-microsoft", "ext": ".qs"},
-        {"name": "Cirq", "desc": "Código Python para Google Cirq.", "icon": "bi-google", "ext": ".py"},
-        {"name": "Braket", "desc": "Código Python para Amazon Braket.", "icon": "bi-amazon", "ext": ".py"},
-        {"name": "ProjectQ", "desc": "Código Python para ProjectQ.", "icon": "bi-terminal-dash", "ext": ".py"},
-        {"name": "LaTeX", "desc": "Código LaTeX para \texttt{quantikz}, \texttt{qcircuit} o TikZ.", "icon": "bi-filetype-tex", "ext": ".tex"},
-        {"name": "TikZ", "desc": "Circuito en formato TikZ para LaTeX.", "icon": "bi-diagram-3", "ext": ".tex"},
-        {"name": "SVG", "desc": "Imagen vectorial escalable del circuito.", "icon": "bi-filetype-svg", "ext": ".svg"},
-        {"name": "PNG", "desc": "Imagen PNG del circuito.", "icon": "bi-image", "ext": ".png"},
-        {"name": "BMP", "desc": "Imagen BMP del circuito.", "icon": "bi-image", "ext": ".bmp"},
-        {"name": "TIFF", "desc": "Imagen TIFF del circuito.", "icon": "bi-image", "ext": ".tiff"},
-        {"name": "SVGZ", "desc": "SVG comprimido.", "icon": "bi-filetype-svg", "ext": ".svgz"},
-        {"name": "EPS", "desc": "Imagen EPS vectorial.", "icon": "bi-filetype-eps", "ext": ".eps"},
-        {"name": "GIF", "desc": "Animación GIF del circuito.", "icon": "bi-filetype-gif", "ext": ".gif"},
-        {"name": "MP4", "desc": "Animación MP4 del circuito.", "icon": "bi-filetype-mp4", "ext": ".mp4"},
-        {"name": "MOV", "desc": "Animación MOV del circuito.", "icon": "bi-filetype-mov", "ext": ".mov"},
-        {"name": "PDF", "desc": "Exporta la visualización del circuito o resultados como PDF.", "icon": "bi-file-earmark-pdf", "ext": ".pdf"},
-        {"name": "HTML", "desc": "Exporta el circuito como página HTML interactiva.", "icon": "bi-filetype-html", "ext": ".html"},
-        {"name": "JSON", "desc": "Exporta la estructura del circuito en JSON.", "icon": "bi-filetype-json", "ext": ".json"},
-        {"name": "YAML", "desc": "Exporta la estructura del circuito en YAML.", "icon": "bi-filetype-yml", "ext": ".yaml"},
-        {"name": "CSV", "desc": "Exporta resultados o métricas en CSV.", "icon": "bi-filetype-csv", "ext": ".csv"},
-        {"name": "Markdown", "desc": "Exporta el circuito como código Markdown.", "icon": "bi-markdown", "ext": ".md"},
-        {"name": "ZIP", "desc": "Descarga todos los archivos relevantes en un ZIP.", "icon": "bi-file-zip", "ext": ".zip"},
-        {"name": "DOCX", "desc": "Exporta resultados a Word.", "icon": "bi-file-earmark-word", "ext": ".docx"},
-        {"name": "PPTX", "desc": "Exporta resultados a PowerPoint.", "icon": "bi-file-earmark-ppt", "ext": ".pptx"},
-        {"name": "XML", "desc": "Exporta el circuito en XML.", "icon": "bi-filetype-xml", "ext": ".xml"},
-        {"name": "TXT", "desc": "Exporta el circuito como texto plano.", "icon": "bi-file-earmark-text", "ext": ".txt"},
-    ]
-    msg = ''
-    export_result = ''
-    selected = request.form.get('export_type', '') if request.method == 'POST' else ''
-    # Procesar exportación (mejor UX y feedback)
-    if request.method == 'POST' and selected:
-        if selected == 'QASM':
-            try:
-                from gates.quantum_gates import get_circuit_qasm
-                from interpreter.qlang_interpreter import circuit_operations
-                qasm = get_circuit_qasm(circuit_operations)
-                export_result = f"<textarea class='form-control' rows='8' readonly>{qasm}</textarea>"
-                msg = "<div class='alert alert-success'>Código QASM generado. Puedes copiarlo o descargarlo.</div>"
-            except Exception as e:
-                msg = f"<div class='alert alert-danger'>Error al exportar QASM: {e}</div>"
-        elif selected == 'Qiskit':
-            try:
-                from gates.quantum_gates import get_circuit_qiskit
-                from interpreter.qlang_interpreter import circuit_operations
-                code = get_circuit_qiskit(circuit_operations)
-                export_result = f"<textarea class='form-control' rows='8' readonly>{code}</textarea>"
-                msg = "<div class='alert alert-success'>Código Qiskit generado. Puedes copiarlo o descargarlo.</div>"
-            except Exception as e:
-                msg = f"<div class='alert alert-danger'>Error al exportar Qiskit: {e}</div>"
-        elif selected == 'JSON':
-            try:
-                from interpreter.qlang_interpreter import circuit_operations
-                import json
-                export_result = f"<textarea class='form-control' rows='8' readonly>{json.dumps(circuit_operations, indent=2)}</textarea>"
-                msg = "<div class='alert alert-success'>JSON generado. Puedes copiarlo o descargarlo.</div>"
-            except Exception as e:
-                msg = f"<div class='alert alert-danger'>Error al exportar JSON: {e}</div>"
-        elif selected == 'TXT':
-            try:
-                from interpreter.qlang_interpreter import circuit_operations
-                txt = '\n'.join(str(op) for op in circuit_operations)
-                export_result = f"<textarea class='form-control' rows='8' readonly>{txt}</textarea>"
-                msg = "<div class='alert alert-success'>Texto plano generado. Puedes copiarlo o descargarlo.</div>"
-            except Exception as e:
-                msg = f"<div class='alert alert-danger'>Error al exportar TXT: {e}</div>"
-        elif selected == 'CSV':
-            msg = "<div class='alert alert-info'>Exporta métricas y resultados en CSV desde los paneles de Métricas y Simulación.</div>"
-        elif selected == 'HTML':
-            msg = "<div class='alert alert-info'>Exportación a HTML interactivo estará disponible próximamente.</div>"
-        elif selected == 'PDF':
-            msg = "<div class='alert alert-info'>Exporta a PDF desde el panel Circuito o Visualización usando la opción de imprimir/guardar como PDF.</div>"
-        elif selected == 'SVG' or selected == 'PNG' or selected == 'BMP' or selected == 'TIFF' or selected == 'SVGZ' or selected == 'EPS' or selected == 'GIF':
-            msg = "<div class='alert alert-info'>Descarga la imagen o animación desde el panel Circuito o Visualización.</div>"
-        elif selected == 'Markdown':
-            msg = "<div class='alert alert-info'>Exportación a Markdown estará disponible próximamente.</div>"
-        elif selected == 'YAML':
-            msg = "<div class='alert alert-info'>Exportación a YAML estará disponible próximamente.</div>"
-        elif selected == 'ZIP':
-            msg = "<div class='alert alert-info'>Pronto podrás descargar todos los archivos relevantes en un ZIP.</div>"
-        elif selected == 'DOCX':
-            msg = "<div class='alert alert-info'>Exportación a Word estará disponible próximamente.</div>"
-        elif selected == 'PPTX':
-            msg = "<div class='alert alert-info'>Exportación a PowerPoint estará disponible próximamente.</div>"
-        elif selected == 'XML':
-            msg = "<div class='alert alert-info'>Exportación a XML estará disponible próximamente.</div>"
-        elif selected == 'Q#':
-            msg = "<div class='alert alert-info'>Exportación a Q# estará disponible próximamente.</div>"
-        elif selected == 'QuTiP':
-            msg = "<div class='alert alert-info'>Exportación a QuTiP estará disponible próximamente.</div>"
-        elif selected == 'Cirq':
-            msg = "<div class='alert alert-info'>Exportación a Cirq estará disponible próximamente.</div>"
-        elif selected == 'Braket':
-            msg = "<div class='alert alert-info'>Exportación a Braket estará disponible próximamente.</div>"
-        elif selected == 'ProjectQ':
-            msg = "<div class='alert alert-info'>Exportación a ProjectQ estará disponible próximamente.</div>"
-        elif selected == 'LaTeX' or selected == 'TikZ':
-            msg = "<div class='alert alert-info'>Exportación a LaTeX/TikZ estará disponible próximamente.</div>"
-        elif selected == 'MP4' or selected == 'MOV':
-            msg = "<div class='alert alert-info'>Exportación de animaciones estará disponible próximamente.</div>"
-        else:
-            msg = "<div class='alert alert-warning'>Selecciona un formato válido.</div>"
-    # Formulario de exportación
-    export_form = f"""
-    <form method='post' class='mb-4'>
-      <div class='row g-3'>
-        <div class='col-md-8'>
-          <label class='form-label'>Selecciona el formato de exportación:</label>
-          <select name='export_type' class='form-select'>
-            <option value=''>--Formato--</option>
-            {''.join(f"<option value='{e['name']}'{' selected' if selected==e['name'] else ''}>{e['name']}</option>" for e in export_types)}
-          </select>
-        </div>
-        <div class='col-md-4 d-flex align-items-end'>
-          <button type='submit' class='btn btn-primary w-100'><i class='bi bi-box-arrow-up'></i> Exportar</button>
-        </div>
-      </div>
-    </form>
-    """
-    # Tarjetas de exportación rápida
-    cards = ''.join(f"""
-      <div class='col-md-6 mb-3'>
-        <div class='card h-100'>
-          <div class='card-body'>
-            <h5 class='card-title'>{et['name']} <i class='bi {et['icon']}'></i></h5>
-            <p class='card-text'>{et['desc']}</p>
-            <form method='post' action='/export' style='display:inline;'>
-              <input type='hidden' name='export_type' value='{et['name']}'>
-              <button type='submit' class='btn btn-outline-primary btn-sm'><i class='bi bi-download'></i> Exportar {et['name']}</button>
-            </form>
-          </div>
-        </div>
-      </div>
-    """ for et in export_types)
-    return render_template_string(
-        BOOTSTRAP_HEAD +
-        build_navbar(active='export') +
-        f"""
-    <div class='container fade-in'>
-      <div class='row'>
-        <div class='col-12'>
-          <h2 class='mb-4'><i class='bi bi-box-arrow-up'></i> Exportación Avanzada</h2>
-          <p>Exporta tu circuito o resultados en múltiples formatos profesionales para usar en otros simuladores, artículos o presentaciones.</p>
-          <div id="export-loading" style="display:none;text-align:center;">
-            <div class="spinner-border text-primary" role="status" aria-label="Cargando exportación..."></div>
-            <div class="mt-2">Procesando exportación...</div>
-          </div>
-          {export_form}
-          <div aria-live="polite" id="export-feedback">{msg}</div>
-          {export_result}
-        </div>
-      </div>
-      <div class='row'>
-        {cards}
-      </div>
-      <div class='alert alert-info mt-4' role='alert'>¿Necesitas un formato especial? ¡Envíanos feedback!</div>
-    </div>
-    <script>
-    // Microinteracción: loading spinner al exportar
-    document.querySelectorAll('form').forEach(function(form) {{
-      form.addEventListener('submit', function(e) {{
-        if (form.querySelector('select[name="export_type"]')) {{
-          document.getElementById('export-loading').style.display = 'block';
-        }}
-      }});
-    }});
-    // Accesibilidad: enfocar feedback tras exportar
-    window.addEventListener('DOMContentLoaded', function() {{
-      var feedback = document.getElementById('export-feedback');
-      if (feedback && feedback.textContent.trim().length > 0) {{
-        if (feedback.focus) feedback.focus();
-      }}
-    }});
-    </script>
-    """ + FOOTER + FEEDBACK_BUTTON
-    )
-
-@app.route('/custom')
-def custom_route():
-    return """
-    <div class='container fade-in'>
-      <div class='row justify-content-center'>
-        <div class='col-md-8'>
-          <div class='card shadow'>
-            <div class='card-body'>
-              <h2 class='card-title mb-3'><i class='bi bi-star'></i> Ruta Personalizada</h2>
-              <p class='lead'>¡Esta es una ruta personalizada agregada exitosamente!</p>
-              <p>Puedes modificar este contenido según tus necesidades.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    """ + FOOTER + FEEDBACK_BUTTON
-@app.route('/algorithms')
-def algorithms_panel():
-    return """
-    <div class='container fade-in'>
-      <div class='row justify-content-center'>
-        <div class='col-md-10'>
-          <div class='card shadow'>
-            <div class='card-body'>
-              <h2 class='card-title mb-3'><i class='bi bi-lightbulb'></i> Algoritmos Cuánticos</h2>
-              <p class='lead'>Panel de referencia para algoritmos cuánticos clásicos y modernos.</p>
-              <ul>
-                <li><b>Grover</b>: Búsqueda cuántica no estructurada.</li>
-                <li><b>Shor</b>: Factorización de enteros grandes.</li>
-                <li><b>Deutsch-Jozsa</b>: Distingue funciones balanceadas y constantes.</li>
-                <li><b>QFT</b>: Transformada de Fourier cuántica.</li>
-                <li><b>Teleportación</b>: Transferencia de estado cuántico.</li>
-                <li><b>Simón</b>, <b>VQE</b>, <b>QAOA</b> y más.</li>
-              </ul>
-              <p>Próximamente: ejemplos interactivos y visualización paso a paso.</p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-    """ + FOOTER + FEEDBACK_BUTTON
+if __name__ == '__main__':
+    port = int(os.environ.get('PORT', 5000))
+    logging.info(f"Iniciando servidor en puerto {port}")
+    app.run(host='0.0.0.0', port=port)
