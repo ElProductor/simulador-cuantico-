@@ -776,7 +776,17 @@ def test_db_connection():
     logging.info("Probando conexión a PostgreSQL")
     try:
         import psycopg2
-        DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://localhost:5432/quantum_sim")
+        DATABASE_URL = os.getenv("DATABASE_URL")
+        if not DATABASE_URL:
+            msg = "<div class='alert alert-warning'>Variable de entorno DATABASE_URL no configurada. Usando configuración local.</div>"
+            logging.warning("DATABASE_URL no configurada")
+            DATABASE_URL = "postgresql://localhost:5432/quantum_sim"
+        
+        # Manejar URL de Render que comienza con postgres:// en lugar de postgresql://
+        if DATABASE_URL.startswith('postgres://'):
+            DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+            logging.info("URL de base de datos convertida de postgres:// a postgresql://")
+            
         conn = psycopg2.connect(DATABASE_URL)
         conn.close()
         msg = "<div class='alert alert-success'>Conexión a PostgreSQL exitosa ✓</div>"
@@ -936,6 +946,13 @@ def download_img():
     return Response(img_bytes, mimetype='image/png', headers={'Content-Disposition': f'attachment;filename={img_name}'})
 
 if __name__ == '__main__':
+    # Configuración para entorno de desarrollo y producción
     port = int(os.environ.get('PORT', 5000))
-    logging.info(f"Iniciando servidor en puerto {port}")
-    app.run(host='0.0.0.0', port=port, debug=True)
+    debug_mode = os.environ.get('FLASK_ENV') == 'development'
+    
+    # En producción, asegurarse de que debug esté desactivado
+    if os.environ.get('RENDER') or os.environ.get('PRODUCTION'):
+        debug_mode = False
+    
+    logging.info(f"Iniciando servidor en puerto {port} (debug: {debug_mode})")
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)

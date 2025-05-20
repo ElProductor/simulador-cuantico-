@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: simulador-cuantico
+    env: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn webapp:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.10.13
+      - key: DATABASE_URL
+        fromDatabase:
+          name: simulador-db
+          property: connectionString
+
+databases:
+  - name: simulador-db
+    databaseName: simulador
+    plan: free
