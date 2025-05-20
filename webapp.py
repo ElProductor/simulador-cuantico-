@@ -2,16 +2,22 @@
 import os
 import sys
 import logging
+import datetime
 logging.basicConfig(level=logging.INFO)
 try:
     import matplotlib
-    matplotlib.use('Agg')
+    matplotlib.use('Agg')  # Ensure compatibility with non-GUI environments
+    os.environ['MPLCONFIGDIR'] = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tmp', '.matplotlib')
     import numpy as np
     import io
-    from flask import Flask, render_template_string, request, jsonify
+    import base64
+    from flask import Flask, render_template_string, request, jsonify, Response
 except ImportError as e:
     logging.error(f"Error de importación crítica: {e}")
     sys.exit(f"Dependencia faltante: {e}. Por favor, revisa requirements.txt e instala las dependencias.")
+
+# Asegurar que el directorio temporal existe
+os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tmp'), exist_ok=True)
 
 from interpreter.qlang_interpreter import qubits, interpret
 
@@ -819,18 +825,117 @@ def health_check():
 
 def simulate_circuit(circuit_operations):
     """Simula el circuito cuántico dado y devuelve los resultados."""
-    # Aquí iría la lógica de simulación del circuito
-    return {"result": "Simulación completada"}
+    from interpreter.qlang_interpreter import qubits, interpret
+    import numpy as np
+    
+    try:
+        # Ejecutar cada operación del circuito
+        results = {
+            "operations": circuit_operations.copy(),
+            "qubit_states": {},
+            "measurements": {},
+            "success": True
+        }
+        
+        # Guardar estados finales de los qubits
+        for name, qubit in qubits.items():
+            # Obtener vector de estado
+            state_vector = qubit.state
+            # Calcular probabilidades
+            probs = np.abs(state_vector)**2
+            # Realizar medición simulada
+            measurement = np.random.choice([0, 1], p=probs)
+            
+            results["qubit_states"][name] = {
+                "state_vector": state_vector.tolist(),
+                "probabilities": probs.tolist()
+            }
+            results["measurements"][name] = int(measurement)
+        
+        logging.info(f"Simulación completada con {len(circuit_operations)} operaciones")
+        return results
+    except Exception as e:
+        logging.error(f"Error en simulación: {str(e)}")
+        return {"success": False, "error": str(e)}
 
 def generate_result_visualizations(results):
     """Genera visualizaciones basadas en los resultados de la simulación."""
-    # Aquí iría la lógica para generar visualizaciones
-    return "<div>Visualización generada</div>"
+    import matplotlib.pyplot as plt
+    import numpy as np
+    import io
+    import base64
+    
+    if not results.get("success", True):
+        return f"<div class='alert alert-danger'>Error en la simulación: {results.get('error', 'Desconocido')}</div>"
+    
+    html_output = "<div class='results-container'>"
+    
+    # Tabla de resultados de medición
+    measurements = results.get("measurements", {})
+    if measurements:
+        html_output += "<h3>Resultados de Medición</h3>"
+        html_output += "<table class='table table-striped table-bordered'>"
+        html_output += "<thead><tr><th>Qubit</th><th>Resultado</th></tr></thead><tbody>"
+        for qubit, result in measurements.items():
+            html_output += f"<tr><td>{qubit}</td><td>{result}</td></tr>"
+        html_output += "</tbody></table>"
+    
+    # Gráfico de probabilidades
+    qubit_states = results.get("qubit_states", {})
+    if qubit_states:
+        fig, ax = plt.subplots(figsize=(8, 4))
+        qubits = list(qubit_states.keys())
+        x = np.arange(len(qubits))
+        width = 0.35
+        
+        # Probabilidad de |0⟩
+        prob_0 = [qubit_states[q]["probabilities"][0] for q in qubits]
+        # Probabilidad de |1⟩
+        prob_1 = [qubit_states[q]["probabilities"][1] for q in qubits]
+        
+        ax.bar(x - width/2, prob_0, width, label='|0⟩')
+        ax.bar(x + width/2, prob_1, width, label='|1⟩')
+        
+        ax.set_ylabel('Probabilidad')
+        ax.set_title('Probabilidades de estados por qubit')
+        ax.set_xticks(x)
+        ax.set_xticklabels(qubits)
+        ax.legend()
+        ax.set_ylim(0, 1)
+        
+        # Convertir gráfico a imagen base64
+        buf = io.BytesIO()
+        plt.tight_layout()
+        fig.savefig(buf, format='png')
+        plt.close(fig)
+        img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+        
+        html_output += f"<h3>Probabilidades de Estados</h3>"
+        html_output += f"<img src='data:image/png;base64,{img_b64}' style='max-width:100%;height:auto;border:1px solid #888;'>"
+        html_output += f"<form method='post' action='/download_img' style='display:inline;margin-top:10px;'>"
+        html_output += f"<input type='hidden' name='img_data' value='{img_b64}'>"
+        html_output += f"<input type='hidden' name='img_name' value='probabilidades.png'>"
+        html_output += f"<button type='submit' class='btn btn-primary'><i class='bi bi-download'></i> Descargar gráfico</button>"
+        html_output += f"</form>"
+    
+    html_output += "</div>"
+    return html_output
 
 # Inicializar variables necesarias
-circuit_operations = []
+try:
+    from interpreter.qlang_interpreter import circuit_operations
+except ImportError:
+    circuit_operations = []
+
+# Añadir ruta para descargar imágenes
+@app.route('/download_img', methods=['POST'])
+def download_img():
+    img_data = request.form.get('img_data', '')
+    img_name = request.form.get('img_name', 'imagen.png')
+    img_bytes = base64.b64decode(img_data)
+    return Response(img_bytes, mimetype='image/png', headers={'Content-Disposition': f'attachment;filename={img_name}'})
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))
     logging.info(f"Iniciando servidor en puerto {port}")
-    app.run(host='0.0.0.0', port=port)
+    app.run(host='0.0.0.0', port=port, debug=True)
