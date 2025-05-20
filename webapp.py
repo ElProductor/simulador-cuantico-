@@ -3,7 +3,16 @@ import os
 import sys
 import logging
 import datetime
-logging.basicConfig(level=logging.INFO)
+import time
+
+# Configuración de logging mejorada
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# Intentar importaciones con manejo de errores robusto
 try:
     import matplotlib
     matplotlib.use('Agg')  # Ensure compatibility with non-GUI environments
@@ -12,16 +21,104 @@ try:
     import io
     import base64
     from flask import Flask, render_template_string, request, jsonify, Response
+    logger.info("Importaciones básicas completadas con éxito")
 except ImportError as e:
-    logging.error(f"Error de importación crítica: {e}")
-    sys.exit(f"Dependencia faltante: {e}. Por favor, revisa requirements.txt e instala las dependencias.")
+    logger.critical(f"Error de importación crítica: {e}")
+    # No terminamos el proceso, pero registramos el error
+    logger.error(f"Dependencia faltante: {e}. Por favor, revisa requirements.txt e instala las dependencias.")
 
 # Asegurar que el directorio temporal existe
-os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tmp'), exist_ok=True)
+try:
+    os.makedirs(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'tmp'), exist_ok=True)
+    logger.info("Directorio temporal creado/verificado correctamente")
+except Exception as e:
+    logger.warning(f"No se pudo crear el directorio temporal: {e}")
 
-from interpreter.qlang_interpreter import qubits, interpret
+# Importar módulos de la aplicación con manejo de errores
+try:
+    from interpreter.qlang_interpreter import qubits, interpret
+    logger.info("Módulos de la aplicación importados correctamente")
+except ImportError as e:
+    logger.error(f"Error al importar módulos de la aplicación: {e}")
 
 app = Flask(__name__)
+
+# Verificar la conexión a la base de datos durante el inicio
+def check_database_connection():
+    logger.info("Verificando conexión a la base de datos durante el inicio")
+    try:
+        import psycopg2
+        DATABASE_URL = os.getenv("DATABASE_URL")
+        
+        if not DATABASE_URL:
+            logger.warning("Variable DATABASE_URL no configurada. La aplicación funcionará sin base de datos.")
+            return
+            
+        # Manejar URL de Render que comienza con postgres:// en lugar de postgresql://
+        if DATABASE_URL.startswith('postgres://'):
+            DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+            logger.info("URL de base de datos convertida de postgres:// a postgresql://")
+        
+        # Intentar conexión con reintentos
+        max_retries = 3
+        retry_delay = 2  # segundos
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Intento de conexión a la base de datos {attempt+1}/{max_retries}")
+                conn = psycopg2.connect(DATABASE_URL, connect_timeout=10)
+                conn.close()
+                logger.info("Conexión a la base de datos exitosa durante el inicio")
+                return True
+            except Exception as e:
+                logger.warning(f"Intento {attempt+1} fallido: {e}")
+                if attempt < max_retries - 1:
+                    logger.info(f"Esperando {retry_delay} segundos antes del siguiente intento...")
+                    time.sleep(retry_delay)
+        
+        logger.error(f"No se pudo conectar a la base de datos después de {max_retries} intentos")
+        logger.warning("La aplicación continuará ejecutándose sin funcionalidades de base de datos")
+        return False
+    except ImportError:
+        logger.warning("Módulo psycopg2 no instalado. La aplicación funcionará sin base de datos.")
+        return False
+    except Exception as e:
+        logger.error(f"Error inesperado al verificar la base de datos: {e}")
+        return False
+
+# Intentar verificar la conexión a la base de datos al inicio, pero no bloquear el arranque
+try:
+    check_database_connection()
+except Exception as e:
+    logger.error(f"Error al verificar la base de datos durante el inicio: {e}")
+    logger.warning("La aplicación continuará ejecutándose con funcionalidad limitada")
+
+# Configurar manejo de errores para la aplicación
+@app.errorhandler(500)
+def server_error(e):
+    logger.error(f"Error interno del servidor: {e}")
+    return render_template_string("""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Error - Simulador Cuántico</title>
+        <style>
+            body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
+            .error-container { max-width: 800px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 5px; }
+            h1 { color: #d9534f; }
+            .back-link { margin-top: 20px; }
+        </style>
+    </head>
+    <body>
+        <div class="error-container">
+            <h1>Error del servidor</h1>
+            <p>Lo sentimos, ha ocurrido un error al procesar tu solicitud.</p>
+            <p>El equipo técnico ha sido notificado y estamos trabajando para resolverlo.</p>
+            <div class="back-link"><a href="/">Volver al inicio</a></div>
+        </div>
+    </body>
+    </html>
+    """), 500
 
 def build_navbar(active=None):
     # Diccionario de rutas y nombres con íconos
@@ -773,37 +870,89 @@ def simulate_panel():
 
 @app.route('/dbtest', methods=['POST'])
 def test_db_connection():
-    logging.info("Probando conexión a PostgreSQL")
+    logger.info("Probando conexión a PostgreSQL")
     try:
         import psycopg2
         DATABASE_URL = os.getenv("DATABASE_URL")
         if not DATABASE_URL:
             msg = "<div class='alert alert-warning'>Variable de entorno DATABASE_URL no configurada. Usando configuración local.</div>"
-            logging.warning("DATABASE_URL no configurada")
+            logger.warning("DATABASE_URL no configurada")
             DATABASE_URL = "postgresql://localhost:5432/quantum_sim"
         
         # Manejar URL de Render que comienza con postgres:// en lugar de postgresql://
         if DATABASE_URL.startswith('postgres://'):
             DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
-            logging.info("URL de base de datos convertida de postgres:// a postgresql://")
+            logger.info("URL de base de datos convertida de postgres:// a postgresql://")
+        
+        # Intentar conexión con reintentos
+        max_retries = 3
+        retry_delay = 2  # segundos
+        last_error = None
+        
+        for attempt in range(max_retries):
+            try:
+                logger.info(f"Intento de conexión {attempt+1}/{max_retries}")
+                conn = psycopg2.connect(
+                    DATABASE_URL,
+                    connect_timeout=10  # Timeout de conexión en segundos
+                )
+                conn.close()
+                msg = "<div class='alert alert-success'>Conexión a PostgreSQL exitosa ✓</div>"
+                logger.info("Prueba de conexión PostgreSQL exitosa")
+                break
+            except psycopg2.OperationalError as e:
+                last_error = e
+                logger.warning(f"Intento {attempt+1} fallido: {e}")
+                if attempt < max_retries - 1:
+                    logger.info(f"Esperando {retry_delay} segundos antes del siguiente intento...")
+                    time.sleep(retry_delay)
+        else:  # Se ejecuta si el bucle termina normalmente (sin break)
+            msg = f"<div class='alert alert-danger'>Error de conexión después de {max_retries} intentos: {str(last_error)}</div>"
+            logger.error(f"Error en prueba PostgreSQL después de {max_retries} intentos: {last_error}")
             
-        conn = psycopg2.connect(DATABASE_URL)
-        conn.close()
-        msg = "<div class='alert alert-success'>Conexión a PostgreSQL exitosa ✓</div>"
-        logging.info("Prueba de conexión PostgreSQL exitosa")
+            # Información de diagnóstico adicional
+            try:
+                import socket
+                host = DATABASE_URL.split('@')[1].split('/')[0].split(':')[0] if '@' in DATABASE_URL else 'unknown'
+                port = int(DATABASE_URL.split('@')[1].split('/')[0].split(':')[1]) if '@' in DATABASE_URL and ':' in DATABASE_URL.split('@')[1].split('/')[0] else 5432
+                
+                s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(5)
+                result = s.connect_ex((host, port))
+                s.close()
+                
+                if result == 0:
+                    msg += "<div class='alert alert-info'>El puerto está abierto, pero hay un problema con las credenciales o la configuración de la base de datos.</div>"
+                else:
+                    msg += "<div class='alert alert-warning'>El puerto está cerrado o bloqueado. Verifica que la base de datos esté en ejecución y accesible desde este servicio.</div>"
+                
+                logger.info(f"Diagnóstico de red: host={host}, port={port}, resultado={result}")
+            except Exception as net_error:
+                logger.warning(f"No se pudo realizar diagnóstico de red: {net_error}")
     except ImportError:
         msg = "<div class='alert alert-warning'>Módulo psycopg2 no instalado. Instálalo con: pip install psycopg2-binary</div>"
-        logging.warning("psycopg2 no instalado")
+        logger.warning("psycopg2 no instalado")
     except Exception as e:
-        msg = f"<div class='alert alert-danger'>Error de conexión: {str(e)}</div>"
-        logging.error(f"Error en prueba PostgreSQL: {e}")
+        msg = f"<div class='alert alert-danger'>Error inesperado: {str(e)}</div>"
+        logger.error(f"Error inesperado en prueba PostgreSQL: {e}")
+    
+    # Información de entorno
+    env_info = "<h4>Información de entorno:</h4><ul>"
+    env_info += f"<li>PYTHON_VERSION: {sys.version}</li>"
+    env_info += f"<li>DATABASE_URL configurada: {'Sí' if os.getenv('DATABASE_URL') else 'No'}</li>"
+    env_info += f"<li>Entorno: {os.getenv('FLASK_ENV', 'no configurado')}</li>"
+    env_info += "</ul>"
+    
     return render_template_string(BOOTSTRAP_HEAD + build_navbar() + f"""
         <div class='container fade-in'>
             <div class='card shadow'>
                 <div class='card-body'>
                     <h3><i class='bi bi-database'></i> Diagnóstico de Base de Datos</h3>
                     {msg}
-                    <a href='/' class='btn btn-primary'>Volver</a>
+                    {env_info}
+                    <div class='mt-3'>
+                        <a href='/' class='btn btn-primary'>Volver</a>
+                    </div>
                 </div>
             </div>
         </div>
@@ -812,25 +961,61 @@ def test_db_connection():
 @app.route('/api/health')
 def health_check():
     """Endpoint de diagnóstico para verificar el estado del servicio"""
-    logging.info("Verificando estado del servicio")
-    status = {
-        'status': 'healthy',
-        'timestamp': datetime.datetime.now().isoformat(),
-        'dependencies': {
-            'matplotlib': 'ok',
-            'numpy': 'ok',
-            'interpreter': 'ok'
-        }
+    logger.info("Verificando estado del servicio")
+    
+    # Verificar dependencias críticas
+    dependencies = {
+        'matplotlib': 'ok',
+        'numpy': 'ok',
+        'flask': 'ok',
+        'interpreter': 'ok',
+        'database': 'unknown'
     }
+    
+    # Verificar conexión a la base de datos
+    try:
+        import psycopg2
+        DATABASE_URL = os.getenv("DATABASE_URL")
+        
+        if DATABASE_URL:
+            # Convertir URL si es necesario
+            if DATABASE_URL.startswith('postgres://'):
+                DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
+            
+            # Intentar conexión con timeout corto
+            try:
+                conn = psycopg2.connect(DATABASE_URL, connect_timeout=5)
+                conn.close()
+                dependencies['database'] = 'ok'
+            except Exception as db_error:
+                dependencies['database'] = f'error: {str(db_error)}'
+                logger.warning(f"Error de conexión a la base de datos en health check: {db_error}")
+        else:
+            dependencies['database'] = 'not_configured'
+    except ImportError:
+        dependencies['database'] = 'driver_missing'
+    
+    # Verificar otras dependencias
     try:
         import matplotlib
         import numpy
         from interpreter.qlang_interpreter import qubits
     except ImportError as e:
-        status['status'] = 'degraded'
-        status['error'] = str(e)
-        logging.error(f"Error en health check: {e}")
+        dependencies['interpreter'] = f'error: {str(e)}'
+        logger.error(f"Error en health check: {e}")
     
+    # Determinar estado general
+    has_errors = any('error' in str(value) for value in dependencies.values())
+    overall_status = 'degraded' if has_errors else 'healthy'
+    
+    status = {
+        'status': overall_status,
+        'timestamp': datetime.datetime.now().isoformat(),
+        'dependencies': dependencies,
+        'environment': os.getenv('FLASK_ENV', 'production')
+    }
+    
+    # Responder con código 200 incluso si hay problemas, para que Render no reinicie el servicio
     return jsonify(status)
 
 def simulate_circuit(circuit_operations):

@@ -44,8 +44,8 @@ Configura las siguientes variables de entorno en tu servicio web de Render:
 - `DATABASE_URL`: URL de conexión a tu base de datos PostgreSQL (si aplica)
 - `FLASK_ENV`: production
 
+# Simulador Cuántico Web
 ## Solución de problemas
-
 ### Error "Bad Gateway"
 
 Si encuentras un error "Bad Gateway" al acceder a tu aplicación desplegada, prueba las siguientes soluciones:
@@ -56,15 +56,21 @@ Si encuentras un error "Bad Gateway" al acceder a tu aplicación desplegada, pru
    - Asegúrate de que la variable `DATABASE_URL` esté correctamente configurada
    - Verifica que la base de datos esté activa y accesible
    - La aplicación ahora maneja automáticamente la conversión de `postgres://` a `postgresql://` para compatibilidad con Render
+   - Utiliza el endpoint `/dbtest` para diagnosticar problemas de conexión a la base de datos
 
 3. **Problemas de memoria o CPU**:
    - Considera actualizar a un plan con más recursos si la aplicación consume demasiada memoria o CPU
 
 4. **Tiempo de inicio**:
    - La aplicación puede tardar en iniciar la primera vez. Espera unos minutos y vuelve a intentarlo.
+   - La aplicación ahora implementa reintentos automáticos para la conexión a la base de datos
 
 5. **Dependencias**:
    - Asegúrate de que todas las dependencias estén correctamente listadas en `requirements.txt`
+
+6. **Verificación de estado**:
+   - Utiliza el endpoint `/api/health` para verificar el estado general de la aplicación
+   - Consulta el archivo `render_troubleshoot.md` para instrucciones detalladas de diagnóstico
 
 ## Archivos de configuración
 
