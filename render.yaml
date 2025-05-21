@@ -7,10 +7,18 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: 3.10.13
+      - key: FLASK_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: INFO
+      - key: RENDER
+        value: true
       - key: DATABASE_URL
         fromDatabase:
           name: simulador-db
           property: connectionString
+    healthCheckPath: /api/health
+    autoDeploy: true
 
 databases:
   - name: simulador-db

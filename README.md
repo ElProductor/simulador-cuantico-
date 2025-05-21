@@ -46,6 +46,17 @@ Configura las siguientes variables de entorno en tu servicio web de Render:
 
 # Simulador Cuántico Web
 ## Solución de problemas
+
+### Mejoras para Render
+
+Esta versión incluye las siguientes mejoras para garantizar un funcionamiento óptimo en Render:
+
+- Configuración mejorada de logging para depuración
+- Manejo adecuado de directorios temporales
+- Detección automática del entorno de producción
+- Manejo robusto de errores en la generación de gráficos
+- Versiones específicas de dependencias en requirements.txt
+
 ### Error "Bad Gateway"
 
 Si encuentras un error "Bad Gateway" al acceder a tu aplicación desplegada, prueba las siguientes soluciones:
