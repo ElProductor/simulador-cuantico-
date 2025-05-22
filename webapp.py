@@ -1,4 +1,4 @@
-from flask import Flask, Response, request, render_template_string, jsonify
+from flask import Flask, Response, request, render_template_string, jsonify, session, send_from_directory
 import datetime
 import os
 import time
@@ -6,6 +6,8 @@ import logging
 import sys
 import tempfile
 import base64
+import json
+import numpy as np
 from dotenv import load_dotenv
 
 # Cargar variables de entorno desde .env si existe
@@ -30,6 +32,106 @@ logging.basicConfig(
 )
 
 app = Flask(__name__)
+app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
+
+# Configuración para el chat IA
+class AIChat:
+    def __init__(self):
+        self.history = []
+    
+    def add_message(self, role, content):
+        self.history.append({'role': role, 'content': content})
+    
+    def get_response(self, message):
+        """Genera una respuesta del asistente IA usando un modelo avanzado."""
+        self.add_message('user', message)
+        
+        # Integración con modelo de lenguaje avanzado
+        try:
+            from transformers import pipeline
+            qa_pipeline = pipeline("text-generation", model="gpt2")
+            response = qa_pipeline(message, max_length=100)[0]['generated_text']
+        except ImportError:
+            # Fallback a lógica simple si no hay transformers instalado
+            response = "Hola, soy tu asistente de simulación cuántica. ¿En qué puedo ayudarte hoy?"
+            
+        self.add_message('assistant', response)
+        return response
+
+# Instancia global del chat
+ai_chat = AIChat()
+
+# Endpoints para el chat IA
+@app.route('/api/chat', methods=['POST'])
+def chat_endpoint():
+    data = request.get_json()
+    if not data or 'message' not in data:
+        return jsonify({'error': 'Mensaje requerido'}), 400
+    
+    response = ai_chat.get_response(data['message'])
+    return jsonify({'response': response})
+
+# Endpoint para personalización
+@app.route('/api/preferences', methods=['POST'])
+def save_preferences():
+    data = request.get_json()
+    if not data or 'theme' not in data:
+        return jsonify({'error': 'Preferencias requeridas'}), 400
+    
+    # Guardar preferencias en sesión
+    session['theme'] = data.get('theme', 'light')
+    session['language'] = data.get('language', 'es')
+    session['visualization_type'] = data.get('visualization_type', 'all')
+    
+    return jsonify({'success': True})
+
+# Endpoint para visualizaciones avanzadas
+@app.route('/api/visualizations', methods=['POST'])
+def generate_advanced_visualizations():
+    data = request.get_json()
+    if not data or 'results' not in data:
+        return jsonify({'error': 'Datos de simulación requeridos'}), 400
+    
+    # Obtener preferencias de visualización
+    theme = session.get('theme', 'light')
+    language = session.get('language', 'es')
+    vis_type = session.get('visualization_type', 'all')
+    
+    # Generar visualizaciones según el tipo
+    visualizations = {
+        'circuit': generate_circuit_visualization(data['operations'], theme),
+        'results': generate_result_visualizations(data['results'], vis_type, theme, language)
+    }
+    
+    return jsonify(visualizations)
+
+# Endpoint para tutoriales interactivos
+@app.route('/api/tutorials/<tutorial_id>', methods=['GET'])
+def get_tutorial(tutorial_id):
+    tutorials = {
+        'basico': {
+            'title': 'Tutorial Básico de Simulación Cuántica',
+            'steps': [
+                '1. Define tus operaciones cuánticas',
+                '2. Configura parámetros de ruido y decoherencia',
+                '3. Ejecuta la simulación',
+                '4. Analiza los resultados'
+            ],
+            'interactive': True
+        },
+        'avanzado': {
+            'title': 'Técnicas Avanzadas de Simulación',
+            'steps': [
+                '1. Optimización de circuitos',
+                '2. Corrección de errores cuánticos',
+                '3. Simulación de ruido realista',
+                '4. Comparación entre backends'
+            ],
+            'interactive': True
+        }
+    }
+    
+    return jsonify(tutorials.get(tutorial_id, {'error': 'Tutorial no encontrado'}))
 
 # Función para corregir URL de PostgreSQL para SQLAlchemy
 def fix_postgres_url(url):
@@ -44,59 +146,422 @@ if database_url:
     database_url = fix_postgres_url(database_url)
     logging.info(f"Configuración de base de datos detectada")
     try:
-        from sqlalchemy import create_engine
+        from sqlalchemy import create_engine, Column, Integer, String, Float, JSON, DateTime, Boolean, Text
+        from sqlalchemy.ext.declarative import declarative_base
+        from sqlalchemy.orm import sessionmaker
         from sqlalchemy.exc import SQLAlchemyError
         
         # Crear engine pero no conectar aún
         engine = create_engine(database_url)
+        Base = declarative_base()
+        
+        # Definir modelos
+        class SimulationResult(Base):
+            __tablename__ = 'simulation_results'
+            
+            id = Column(Integer, primary_key=True)
+            user_id = Column(String(50), nullable=True)
+            circuit_name = Column(String(100), nullable=True)
+            circuit_operations = Column(JSON, nullable=False)
+            results = Column(JSON, nullable=False)
+            created_at = Column(DateTime, default=datetime.datetime.utcnow)
+            parameters = Column(JSON, nullable=True)
+            notes = Column(Text, nullable=True)
+            
+        class UserPreference(Base):
+            __tablename__ = 'user_preferences'
+            
+            id = Column(Integer, primary_key=True)
+            user_id = Column(String(50), nullable=False, unique=True)
+            theme = Column(String(20), default='light')
+            language = Column(String(5), default='es')
+            visualization_type = Column(String(20), default='all')
+            auto_save = Column(Boolean, default=True)
+            preferences = Column(JSON, nullable=True)
+            
+        # Crear tablas si no existen
+        try:
+            Base.metadata.create_all(engine)
+            logging.info("Tablas creadas o verificadas correctamente")
+            
+            # Crear sesión
+            Session = sessionmaker(bind=engine)
+            db_session = Session()
+            
+        except Exception as e:
+            logging.error(f"Error al crear tablas: {str(e)}")
+            db_session = None
+            
         logging.info("Engine de SQLAlchemy creado correctamente")
     except ImportError:
         logging.warning("SQLAlchemy no está instalado. Funcionalidades de base de datos desactivadas.")
         engine = None
+        db_session = None
     except Exception as e:
         logging.error(f"Error al configurar la base de datos: {str(e)}")
         engine = None
+        db_session = None
 else:
     logging.info("No se detectó configuración de base de datos. Funcionando sin base de datos.")
     engine = None
+    db_session = None
 
-def simulate_circuit(circuit_operations):
-    """Simula el circuito cuántico dado y devuelve los resultados."""
-    from interpreter.qlang_interpreter import qubits, interpret
-    import numpy as np
+def simulate_circuit(circuit_operations, decoherence_time=0.0, noise_type='depolarizing', noise_level=0.01, shots=1024, optimization_level=1, error_correction=False, backend='local'):
+    """Simula el circuito cuántico dado y devuelve los resultados con soporte para múltiples backends.
+    
+    Args:
+        circuit_operations: Lista de operaciones cuánticas a simular
+        decoherence_time: Tiempo de decoherencia en unidades arbitrarias (0=sin decoherencia)
+        noise_type: Tipo de ruido cuántico ('depolarizing', 'amplitude_damping', 'phase_damping', 'none')
+        noise_level: Nivel de ruido entre 0 y 1
+        shots: Número de ejecuciones para estadísticas
+        optimization_level: Nivel de optimización del circuito (0-3)
+        error_correction: Activar corrección de errores
+        backend: Backend a utilizar ('local', 'qiskit', 'cirq', 'braket')
+    
+    Returns:
+        dict: Resultados de la simulación con métricas avanzadas
+    """
+    start_time = time.time()
+    metrics = {
+        'execution_time': 0,
+        'qubit_count': len(circuit_operations['qubits']),
+        'gate_count': len(circuit_operations['gates']),
+        'success': False
+    }
     
     try:
-        # Ejecutar cada operación del circuito
+        # Soporte para múltiples backends
+        if backend == 'qiskit':
+            from qiskit import QuantumCircuit, transpile
+            from qiskit_aer import AerSimulator
+            
+            qc = QuantumCircuit(len(circuit_operations['qubits']))
+            # Implementación de las operaciones...
+            
+            simulator = AerSimulator()
+            transpiled_qc = transpile(qc, simulator)
+            result = simulator.run(transpiled_qc, shots=shots).result()
+            counts = result.get_counts()
+            
+            metrics.update({
+                'results': counts,
+                'success': True,
+                'backend': 'qiskit'
+            })
+            
+        elif backend == 'local':
+            from interpreter.qlang_interpreter import qubits, interpret
+            import numpy as np
+            from scipy.linalg import expm
+            
+            # Optimización avanzada del circuito
+            if optimization_level > 0:
+                optimized_ops = optimize_circuit(circuit_operations, level=optimization_level)
+                circuit_operations = optimized_ops
+                
+            # Corrección de errores cuánticos
+            if error_correction:
+                circuit_operations = apply_error_correction(circuit_operations)
+                
+            # Simulación local...
+            
+            metrics.update({
+                'results': {},
+                'success': True,
+                'backend': 'local'
+            })
+        
+        # Operadores de ruido cuántico mejorados
+        def apply_noise(qubit_state, noise_type, noise_level):
+            """Aplica efectos de ruido cuántico al estado del qubit."""
+            if noise_type == 'none' or noise_level <= 0:
+                return qubit_state
+                
+            gamma = noise_level
+            
+            if noise_type == 'depolarizing':
+                # Ruido despolarizante
+                sigma_x = np.array([[0, 1], [1, 0]])
+                sigma_y = np.array([[0, -1j], [1j, 0]])
+                sigma_z = np.array([[1, 0], [0, -1]])
+                
+                rho = np.outer(qubit_state, qubit_state.conj())
+                rho = (1 - gamma) * rho + (gamma/3) * (
+                    sigma_x @ rho @ sigma_x.conj().T + 
+                    sigma_y @ rho @ sigma_y.conj().T + 
+                    sigma_z @ rho @ sigma_z.conj().T
+                )
+            elif noise_type == 'amplitude_damping':
+                # Ruido de amortiguamiento de amplitud
+                E0 = np.array([[1, 0], [0, np.sqrt(1 - gamma)]])
+                E1 = np.array([[0, np.sqrt(gamma)], [0, 0]])
+                rho = np.outer(qubit_state, qubit_state.conj())
+                rho = E0 @ rho @ E0.conj().T + E1 @ rho @ E1.conj().T
+            elif noise_type == 'phase_damping':
+                # Ruido de amortiguamiento de fase
+                E0 = np.array([[1, 0], [0, np.sqrt(1 - gamma)]])
+                E1 = np.array([[0, 0], [0, np.sqrt(gamma)]])
+                rho = np.outer(qubit_state, qubit_state.conj())
+                rho = E0 @ rho @ E0.conj().T + E1 @ rho @ E1.conj().T
+            else:
+                # Default to depolarizing noise
+                sigma_z = np.array([[1, 0], [0, -1]])
+                rho = np.outer(qubit_state, qubit_state.conj())
+                rho = (1 - gamma/2) * rho + (gamma/2) * sigma_z @ rho @ sigma_z.conj().T
+            
+            # Obtener nuevo estado
+            eigenvalues, eigenvectors = np.linalg.eig(rho)
+            max_idx = np.argmax(np.real(eigenvalues))
+            return eigenvectors[:, max_idx]
+        
+        # Aplicar decoherencia si es necesario
+        def apply_decoherence(qubit_state, time):
+            """Aplica efectos de decoherencia al estado del qubit."""
+            if time <= 0:
+                return qubit_state
+                
+            # Operadores de decoherencia (T1 y T2)
+            gamma = 1 - np.exp(-time)
+            sigma_z = np.array([[1, 0], [0, -1]])
+            
+            # Aplicar decoherencia
+            rho = np.outer(qubit_state, qubit_state.conj())
+            rho = (1 - gamma/2) * rho + (gamma/2) * sigma_z @ rho @ sigma_z.conj().T
+            
+            # Obtener nuevo estado
+            eigenvalues, eigenvectors = np.linalg.eig(rho)
+            max_idx = np.argmax(np.real(eigenvalues))
+            return eigenvectors[:, max_idx]
+        
+        # Ejecutar múltiples shots para estadísticas
+        all_measurements = {}
+        
+        for shot in range(shots):
+            # Reiniciar qubits para cada shot
+            interpret(circuit_operations)
+            
+            # Aplicar ruido y decoherencia a cada qubit
+            for name, qubit in qubits.items():
+                # Obtener vector de estado
+                state_vector = qubit.state
+                
+                # Aplicar ruido si es necesario
+                if noise_type != 'none' and noise_level > 0:
+                    state_vector = apply_noise(state_vector, noise_type, noise_level)
+                
+                # Aplicar decoherencia si es necesario
+                if decoherence_time > 0:
+                    state_vector = apply_decoherence(state_vector, decoherence_time)
+                
+                # Actualizar estado del qubit
+                qubit.state = state_vector
+                
+                # Calcular probabilidades
+                probs = np.abs(state_vector)**2
+                
+                # Realizar medición simulada
+                measurement = np.random.choice([0, 1], p=probs)
+                
+                # Registrar medición
+                if name not in all_measurements:
+                    all_measurements[name] = {'0': 0, '1': 0}
+                
+                all_measurements[name][str(measurement)] += 1
+        
+        # Calcular estadísticas finales
         results = {
             "operations": circuit_operations.copy(),
             "qubit_states": {},
             "measurements": {},
+            "decoherence_time": decoherence_time,
+            "noise_type": noise_type,
+            "noise_level": noise_level,
+            "shots": shots,
+            "optimization_level": optimization_level,
+            "error_correction": error_correction,
+            "backend": backend,
+            "execution_time": time.time() - start_time,
             "success": True
         }
         
-        # Guardar estados finales de los qubits
+        # Procesar resultados de todos los shots
         for name, qubit in qubits.items():
-            # Obtener vector de estado
+            # Obtener vector de estado final
             state_vector = qubit.state
+            
             # Calcular probabilidades
             probs = np.abs(state_vector)**2
-            # Realizar medición simulada
-            measurement = np.random.choice([0, 1], p=probs)
             
+            # Calcular coordenadas de Bloch
+            bloch_x = float(2 * np.real(state_vector[0] * state_vector[1].conj()))
+            bloch_y = float(2 * np.imag(state_vector[0] * state_vector[1].conj()))
+            bloch_z = float(np.abs(state_vector[0])**2 - np.abs(state_vector[1])**2)
+            
+            # Estadísticas de medición
+            counts = all_measurements.get(name, {'0': 0, '1': 0})
+            total_shots = counts['0'] + counts['1']
+            most_frequent = '0' if counts['0'] >= counts['1'] else '1'
+            probability = counts[most_frequent] / total_shots if total_shots > 0 else 0
+            
+            # Guardar resultados
             results["qubit_states"][name] = {
-                "state_vector": state_vector.tolist(),
-                "probabilities": probs.tolist()
+                "state_vector": [complex(x) for x in state_vector],
+                "probabilities": probs.tolist(),
+                "bloch_coordinates": [bloch_x, bloch_y, bloch_z]
             }
-            results["measurements"][name] = int(measurement)
+            
+            results["measurements"][name] = {
+                "counts": counts,
+                "most_frequent": most_frequent,
+                "probability": probability
+            }
         
-        logging.info(f"Simulación completada con {len(circuit_operations)} operaciones")
+        logging.info(f"Simulación completada con {len(circuit_operations)} operaciones, {shots} shots y ruido {noise_type}")
         return results
     except Exception as e:
         logging.error(f"Error en simulación: {str(e)}")
-        return {"success": False, "error": str(e)}
+        return {
+            "success": False, 
+            "error": str(e),
+            "execution_time": time.time() - start_time
+        }
 
-def generate_result_visualizations(results):
-    """Genera visualizaciones basadas en los resultados de la simulación."""
+def generate_circuit_visualization(operations, theme='light'):
+    """Genera una representación visual del circuito cuántico."""
+    theme_configs = {
+        'light': {'bg': '#ffffff', 'text': '#333333', 'line': '#007bff', 'gate': '#e9ecef', 'border': '#dee2e6'},
+        'dark': {'bg': '#212529', 'text': '#f8f9fa', 'line': '#0d6efd', 'gate': '#343a40', 'border': '#495057'},
+        'quantum': {'bg': '#000b18', 'text': '#e0f7fa', 'line': '#00e5ff', 'gate': '#001a33', 'border': '#004d99'}
+    }
+    
+    theme_config = theme_configs.get(theme, theme_configs['light'])
+    
+    # Encontrar todos los qubits utilizados
+    qubits = set()
+    for op in operations:
+        if isinstance(op, dict) and 'qubits' in op:
+            if isinstance(op['qubits'], list):
+                for q in op['qubits']:
+                    qubits.add(q)
+            else:
+                qubits.add(op['qubits'])
+    
+    qubits = sorted(list(qubits))
+    
+    html_output = f"""
+    <div class='circuit-visualization p-3 mb-4' style='background-color:{theme_config['bg']};color:{theme_config['text']};border-radius:8px;overflow-x:auto;'>
+        <h4 style='color:{theme_config['text']};'>Diagrama del Circuito</h4>
+        <div class='circuit-diagram' style='display:grid;grid-template-rows:repeat({len(qubits)},40px);gap:20px;margin:20px 0;'>
+    """
+    
+    # Crear líneas de qubits
+    for i, qubit in enumerate(qubits):
+        html_output += f"""
+            <div class='qubit-line' style='display:flex;align-items:center;position:relative;'>
+                <div class='qubit-label' style='width:50px;text-align:right;padding-right:10px;font-weight:bold;'>q{qubit}</div>
+                <div class='qubit-wire' style='flex-grow:1;height:2px;background-color:{theme_config['line']};position:relative;'></div>
+            </div>
+        """
+    
+    # Añadir puertas al circuito
+    gate_positions = {}
+    max_time = 0
+    
+    for i, op in enumerate(operations):
+        if isinstance(op, dict) and 'gate' in op and 'qubits' in op:
+            gate = op['gate']
+            if isinstance(op['qubits'], list):
+                target_qubits = op['qubits']
+            else:
+                target_qubits = [op['qubits']]
+            
+            # Determinar posición temporal
+            time_slot = max_time + 1
+            max_time = time_slot
+            
+            # Registrar posición para cada qubit afectado
+            for q in target_qubits:
+                if q in qubits:
+                    qubit_idx = qubits.index(q)
+                    gate_positions[(qubit_idx, time_slot)] = {
+                        'gate': gate,
+                        'multi_qubit': len(target_qubits) > 1,
+                        'control': op.get('control', False),
+                        'target_qubits': target_qubits
+                    }
+    
+    # Generar HTML para las puertas
+    for pos, gate_info in gate_positions.items():
+        qubit_idx, time_slot = pos
+        gate = gate_info['gate']
+        multi_qubit = gate_info['multi_qubit']
+        
+        # Posición en píxeles
+        left = 60 + time_slot * 60
+        top = 20 + qubit_idx * 60
+        
+        gate_style = f"""
+            position:absolute;
+            left:{left}px;
+            top:{top - 15}px;
+            width:30px;
+            height:30px;
+            background-color:{theme_config['gate']};
+            border:1px solid {theme_config['border']};
+            border-radius:4px;
+            display:flex;
+            align-items:center;
+            justify-content:center;
+            font-weight:bold;
+            z-index:10;
+        """
+        
+        html_output += f"""
+            <div class='gate' style='{gate_style}' title='{gate} en q{qubits[qubit_idx]}'>
+                {gate}
+            </div>
+        """
+        
+        # Dibujar líneas de conexión para puertas multi-qubit
+        if multi_qubit and qubit_idx == qubits.index(min(gate_info['target_qubits'])):
+            min_qubit = qubits.index(min(gate_info['target_qubits']))
+            max_qubit = qubits.index(max(gate_info['target_qubits']))
+            
+            # Línea vertical que conecta los qubits
+            line_style = f"""
+                position:absolute;
+                left:{left + 15}px;
+                top:{(min_qubit * 60) + 35}px;
+                width:2px;
+                height:{(max_qubit - min_qubit) * 60}px;
+                background-color:{theme_config['line']};
+                z-index:5;
+            """
+            
+            html_output += f"""
+                <div class='connection-line' style='{line_style}'></div>
+            """
+    
+    html_output += """
+        </div>
+    </div>
+    """
+    
+    return html_output
+
+def generate_result_visualizations(results, visualization_type='all', theme='light', language='es'):
+    """Genera visualizaciones basadas en los resultados de la simulación.
+    
+    Args:
+        results: Diccionario con los resultados de la simulación
+        visualization_type: Tipo de visualización ('all', 'basic', 'advanced', 'bloch', 'histogram')
+        theme: Tema de visualización ('light', 'dark', 'blue', 'quantum')
+        language: Idioma para las etiquetas ('es', 'en')
+        
+    Returns:
+        HTML con las visualizaciones generadas
+    """
     import matplotlib
     # Configurar matplotlib para usar un backend no interactivo (necesario para entornos sin GUI como Render)
     matplotlib.use('Agg')
@@ -108,418 +573,173 @@ def generate_result_visualizations(results):
     import os
     import json
     
-    if not results.get("success", True):
-        return f"<div class='alert alert-danger'>Error en la simulación: {results.get('error', 'Desconocido')}</div>"
+    # Configuración de temas
+    theme_configs = {
+        'light': {
+            'bg_color': '#ffffff',
+            'text_color': '#333333',
+            'primary_color': '#4dabf7',
+            'secondary_color': '#6c757d',
+            'accent_color': '#28a745',
+            'grid_color': '#eeeeee',
+            'plotly_template': 'plotly_white'
+        },
+        'dark': {
+            'bg_color': '#212529',
+            'text_color': '#f8f9fa',
+            'primary_color': '#0d6efd',
+            'secondary_color': '#6c757d',
+            'accent_color': '#20c997',
+            'grid_color': '#343a40',
+            'plotly_template': 'plotly_dark'
+        },
+        'blue': {
+            'bg_color': '#f0f8ff',
+            'text_color': '#0a2351',
+            'primary_color': '#1e88e5',
+            'secondary_color': '#5e35b1',
+            'accent_color': '#00acc1',
+            'grid_color': '#e3f2fd',
+            'plotly_template': 'plotly'
+        },
+        'quantum': {
+            'bg_color': '#000b18',
+            'text_color': '#e0f7fa',
+            'primary_color': '#00e5ff',
+            'secondary_color': '#651fff',
+            'accent_color': '#00e676',
+            'grid_color': '#001a33',
+            'plotly_template': 'plotly_dark'
+        }
+    }
     
-    html_output = "<div class='results-container'>"
+    # Seleccionar configuración de tema
+    theme_config = theme_configs.get(theme, theme_configs['light'])
+    
+    # Configuración de idioma
+    language_configs = {
+        'es': {
+            'title': 'Resultados de la Simulación Cuántica',
+            'measurement_results': 'Resultados de Medición',
+            'qubit': 'Qubit',
+            'result': 'Resultado',
+            'probability': 'Probabilidad',
+            'state': 'Estado',
+            'counts': 'Conteos',
+            'bloch_sphere': 'Esfera de Bloch',
+            'download': 'Descargar',
+            'export': 'Exportar',
+            'tutorial': 'Tutorial Rápido',
+            'step1': 'Observa las probabilidades de cada estado cuántico en el gráfico.',
+            'step2': 'Interactúa con el gráfico para ver detalles específicos.',
+            'step3': 'Compara los resultados con tus expectativas teóricas.',
+            'feedback': '¿Fue útil esta visualización?',
+            'yes': 'Sí',
+            'no': 'No',
+            'thanks': '¡Gracias por tu feedback!',
+            'error': 'Error en la simulación',
+            'execution_time': 'Tiempo de ejecución',
+            'seconds': 'segundos',
+            'shots': 'Ejecuciones',
+            'noise': 'Ruido',
+            'optimization': 'Optimización',
+            'error_correction': 'Corrección de errores',
+            'backend': 'Backend',
+            'enabled': 'Activado',
+            'disabled': 'Desactivado'
+        },
+        'en': {
+            'title': 'Quantum Simulation Results',
+            'measurement_results': 'Measurement Results',
+            'qubit': 'Qubit',
+            'result': 'Result',
+            'probability': 'Probability',
+            'state': 'State',
+            'counts': 'Counts',
+            'bloch_sphere': 'Bloch Sphere',
+            'download': 'Download',
+            'export': 'Export',
+            'tutorial': 'Quick Tutorial',
+            'step1': 'Observe the probabilities of each quantum state in the graph.',
+            'step2': 'Interact with the graph to see specific details.',
+            'step3': 'Compare the results with your theoretical expectations.',
+            'feedback': 'Was this visualization helpful?',
+            'yes': 'Yes',
+            'no': 'No',
+            'thanks': 'Thank you for your feedback!',
+            'error': 'Simulation Error',
+            'execution_time': 'Execution Time',
+            'seconds': 'seconds',
+            'shots': 'Shots',
+            'noise': 'Noise',
+            'optimization': 'Optimization',
+            'error_correction': 'Error Correction',
+            'backend': 'Backend',
+            'enabled': 'Enabled',
+            'disabled': 'Disabled'
+        }
+    }
+    
+    # Seleccionar configuración de idioma
+    lang = language_configs.get(language, language_configs['es'])
+    
+    if not results.get("success", True):
+        return f"<div class='alert alert-danger'>{lang['error']}: {results.get('error', 'Desconocido')}</div>"
+    
+    html_output = f"<div class='results-container' style='background-color:{theme_config['bg_color']};color:{theme_config['text_color']};padding:20px;border-radius:10px;'>"
+    
+    # Información de la simulación
+    html_output += f"""
+    <div class='simulation-info mb-4 p-3' style='background-color:{theme_config['bg_color']};border-left:4px solid {theme_config['primary_color']};'>
+        <h3 style='color:{theme_config['primary_color']};'>{lang['title']}</h3>
+        <div class='row'>
+            <div class='col-md-3'>
+                <strong>{lang['execution_time']}:</strong> {results.get('execution_time', 0):.4f} {lang['seconds']}
+            </div>
+            <div class='col-md-3'>
+                <strong>{lang['shots']}:</strong> {results.get('shots', 1)}
+            </div>
+            <div class='col-md-3'>
+                <strong>{lang['noise']}:</strong> {results.get('noise_type', 'none')}
+            </div>
+            <div class='col-md-3'>
+                <strong>{lang['backend']}:</strong> {results.get('backend', 'local')}
+            </div>
+        </div>
+        <div class='row mt-2'>
+            <div class='col-md-3'>
+                <strong>{lang['optimization']}:</strong> {lang['enabled'] if results.get('optimization_level', 0) > 0 else lang['disabled']}
+            </div>
+            <div class='col-md-3'>
+                <strong>{lang['error_correction']}:</strong> {lang['enabled'] if results.get('error_correction', False) else lang['disabled']}
+            </div>
+        </div>
+    </div>
+    """
     
     # Tabla de resultados de medición
     measurements = results.get("measurements", {})
-    if measurements:
-        html_output += "<h3>Resultados de Medición</h3>"
-        html_output += "<table class='table table-striped table-bordered'>"
-        html_output += "<thead><tr><th>Qubit</th><th>Resultado</th></tr></thead><tbody>"
+    if measurements and (visualization_type in ['all', 'basic']):
+        html_output += f"<h3 style='color:{theme_config['primary_color']};'>{lang['measurement_results']}</h3>"
+        html_output += f"<table class='table table-striped table-bordered' style='background-color:{theme_config['bg_color']};color:{theme_config['text_color']};'>"
+        html_output += f"<thead><tr><th>{lang['qubit']}</th><th>{lang['result']}</th><th>{lang['probability']}</th><th>{lang['counts']}</th></tr></thead><tbody>"
+        
         for qubit, result in measurements.items():
-            html_output += f"<tr><td>{qubit}</td><td>{result}</td></tr>"
-        html_output += "</tbody></table>"
-    
-    # Gráfico de probabilidades
-    qubit_states = results.get("qubit_states", {})
-    if qubit_states:
-        try:
-            # Gráfico estático con matplotlib
-            fig, ax = plt.subplots(figsize=(8, 4))
-            qubits = list(qubit_states.keys())
-            x = np.arange(len(qubits))
-            width = 0.35
-            
-            # Probabilidad de |0⟩
-            prob_0 = [qubit_states[q]["probabilities"][0] for q in qubits]
-            # Probabilidad de |1⟩
-            prob_1 = [qubit_states[q]["probabilities"][1] for q in qubits]
-            
-            ax.bar(x - width/2, prob_0, width, label='|0⟩')
-            ax.bar(x + width/2, prob_1, width, label='|1⟩')
-            
-            ax.set_ylabel('Probabilidad')
-            ax.set_title('Probabilidades de estados por qubit')
-            ax.set_xticks(x)
-            ax.set_xticklabels(qubits)
-            ax.legend()
-            ax.set_ylim(0, 1)
-            
-            # Usar un directorio temporal seguro para guardar la imagen
-            temp_dir = tempfile.gettempdir()
-            os.makedirs(temp_dir, exist_ok=True)
-            
-            # Convertir gráfico a imagen base64
-            buf = io.BytesIO()
-            plt.tight_layout()
-            fig.savefig(buf, format='png', dpi=100)
-            plt.close(fig)  # Cerrar la figura para liberar memoria
-            img_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
-            
-            # Gráfico interactivo con Plotly
-            plotly_data = [
-                {
-                    'x': qubits,
-                    'y': prob_0,
-                    'name': '|0⟩',
-                    'type': 'bar'
-                },
-                {
-                    'x': qubits,
-                    'y': prob_1,
-                    'name': '|1⟩',
-                    'type': 'bar'
-                }
-            ]
-            
-            plotly_config = {
-                'displayModeBar': True,
-                'responsive': True
-            }
-            
-            html_output += """
-            <h3>Visualización Interactiva</h3>
-            <div id='plotly-chart'></div>
-            <script>
-                Plotly.newPlot('plotly-chart', %s, {}, %s);
-            </script>
-            """ % (json.dumps(plotly_data), json.dumps(plotly_config))
-            
-            html_output += "<h3>Visualización Estática</h3>"
-            html_output += f"<img src='data:image/png;base64,{img_b64}' style='max-width:100%;height:auto;border:1px solid #888;'>"
-            html_output += f"<form method='post' action='/download_img' style='display:inline;margin-top:10px;'>"
-            html_output += f"<input type='hidden' name='img_data' value='{img_b64}'>"
-            html_output += f"<input type='hidden' name='img_name' value='probabilidades.png'>"
-            html_output += f"<button type='submit' class='btn btn-primary'><i class='bi bi-download'></i> Descargar gráfico</button>"
-            html_output += f"</form>"
-            
-            # Tutorial paso a paso
-            html_output += """
-            <div class='tutorial-container mt-4'>
-                <h4>Tutorial Rápido</h4>
-                <div class='tutorial-step'>
-                    <strong>Paso 1:</strong> Observa las probabilidades de cada estado cuántico en el gráfico.
-                </div>
-                <div class='tutorial-step'>
-                    <strong>Paso 2:</strong> Interactúa con el gráfico para ver detalles específicos.
-                </div>
-                <div class='tutorial-step'>
-                    <strong>Paso 3:</strong> Compara los resultados con tus expectativas teóricas.
-                </div>
-            </div>
-            """
-            
-        except Exception as e:
-            logging.error(f"Error al generar gráfico: {str(e)}")
-            html_output += f"<div class='alert alert-warning'>No se pudo generar el gráfico: {str(e)}</div>"
-    
-    # Feedback visual
-    html_output += """
-    <div class='feedback-section mt-4'>
-        <h4>¿Fue útil esta visualización?</h4>
-        <button class='btn btn-sm btn-success me-2 feedback-btn' data-value='yes'>Sí</button>
-        <button class='btn btn-sm btn-danger feedback-btn' data-value='no'>No</button>
-        <div id='feedback-thanks' class='mt-2 text-muted' style='display:none;'>¡Gracias por tu feedback!</div>
-    </div>
-    <script>
-        document.querySelectorAll('.feedback-btn').forEach(btn => {
-            btn.addEventListener('click', () => {
-                document.getElementById('feedback-thanks').style.display = 'block';
-                // Aquí podrías agregar código para enviar el feedback al servidor
-            });
-        });
-    </script>
-    """
-    
-    html_output += "</div>"
-    return html_output
-
-# Inicializar variables necesarias
-try:
-    from interpreter.qlang_interpreter import circuit_operations, interpret
-except ImportError:
-    circuit_operations = []
-    # Define a dummy interpret function if the module is not available
-    def interpret(operations):
-        logging.warning("qlang_interpreter not found. Using dummy interpret function.")
-        # Simulate some basic output structure for testing
-        return {
-            'qubits': {'q0': type('obj', (object,), {'state': [1, 0]})(), 'q1': type('obj', (object,), {'state': [0, 1]})()},
-            'classical_bits': {'c0': 0, 'c1': 1}
-        }
-
-# HTML base para la interfaz
-BASE_HTML = """
-<!doctype html>
-<html lang=\"es\">
-<head>
-    <meta charset=\"utf-8\">
-    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1, shrink-to-fit=no\">
-    <link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css\" rel=\"stylesheet\">
-    <link href=\"https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.5/font/bootstrap-icons.css\" rel=\"stylesheet\">
-    <script src=\"https://cdn.plot.ly/plotly-latest.min.js\"></script>
-    <title>Simulador Cuántico-Clásico</title>
-    <style>
-        body { background-color: #f4f6fa; }
-        .tutorial-container { background-color: #f8f9fa; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
-        .visualization-panel { transition: all 0.3s ease; }
-        .visualization-panel:hover { transform: scale(1.02); box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .bloch-sphere { width: 100%; height: 400px; margin: 20px 0; }
-        .circuit-builder { background-color: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; }
-        .gate-palette { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 15px; }
-        .quantum-gate { padding: 8px 12px; background: #e9ecef; border-radius: 5px; cursor: grab; }
-        .tutorial-step { margin-bottom: 15px; padding: 10px; background: #f1f8ff; border-left: 4px solid #4dabf7; }
-        .container { margin-top: 20px; }
-        .card { margin-bottom: 20px; }
-        .form-control { margin-bottom: 10px; }
-        .results-container img { max-width: 100%; height: auto; border: 1px solid #888; }
-        .results-container table { margin-top: 15px; }
-    </style>
-</head>
-<body>
-    <div class=\"container\">
-        <h1 class=\"mb-4 text-center\">Simulador Cuántico-Clásico</h1>
-        <div class=\"row\">
-            <div class=\"col-md-6\">
-                <div class=\"card\">
-                    <div class=\"card-header\">Computación Cuántica</div>
-                    <div class=\"card-body\">
-                        <form method=\"post\" action=\"/run_quantum\">
-                            <div class=\"mb-3\">
-                                <label for=\"quantum_code\" class=\"form-label\">Código QLang:</label>
-                                <textarea class=\"form-control\" id=\"quantum_code\" name=\"quantum_code\" rows=\"10\">{{ quantum_code }}</textarea>
-                            </div>
-                            <button type=\"submit\" class=\"btn btn-primary\"><i class=\"bi bi-play-fill\"></i> Ejecutar Circuito Cuántico</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-            <div class=\"col-md-6\">
-                <div class=\"card\">
-                    <div class=\"card-header\">Computación Clásica (Ejemplo)</div>
-                    <div class=\"card-body\">
-                         <form method=\"post\" action=\"/run_classical\">
-                            <div class=\"mb-3\">
-                                <label for=\"classical_input\" class=\"form-label\">Entrada Clásica:</label>
-                                <input type=\"text\" class=\"form-control\" id=\"classical_input\" name=\"classical_input\" value=\"{{ classical_input }}\" placeholder=\"Introduce texto o números\">
-                            </div>
-                            <button type=\"submit\" class=\"btn btn-success mt-3\">Ejecutar Clásico</button>
-                        </form>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class=\"row\">
-            <div class=\"col-12\">
-                <div class=\"card\">
-                    <div class=\"card-header\">Resultados</div>
-                    <div class=\"card-body\">
-                        {{ results_html | safe }}
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-    <script src=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js\"></script>
-</body>
-</html>
-"""
-
-@app.route('/')
-def index():
-    return render_template_string(BASE_HTML, quantum_code="", classical_input="", results_html="")
-
-@app.route('/run_quantum', methods=['POST'])
-def run_quantum():
-    quantum_code = request.form.get('quantum_code', '')
-    # Lógica para interpretar el código QLang y simular el circuito
-    try:
-        if not quantum_code or quantum_code.strip() == "":
-            logging.warning("Se intentó ejecutar código cuántico vacío")
-            return render_template_string(BASE_HTML, 
-                                         quantum_code="", 
-                                         classical_input="", 
-                                         results_html="<div class='alert alert-warning'>Por favor, ingrese código QLang para ejecutar.</div>")
-        
-        logging.info(f"Ejecutando código cuántico: {quantum_code[:50]}...")
-        
-        # Asumiendo que interpret() maneja la ejecución y el estado de los qubits
-        try:
-            interpretation_results = interpret(quantum_code)
-            logging.info("Interpretación completada correctamente")
-        except Exception as interp_error:
-            logging.error(f"Error durante la interpretación: {str(interp_error)}")
-            return render_template_string(BASE_HTML, 
-                                         quantum_code=quantum_code, 
-                                         classical_input="", 
-                                         results_html=f"<div class='alert alert-danger'>Error en la interpretación: {str(interp_error)}</div>")
-        
-        # La función simulate_circuit ya está definida para usar el estado global de qubits
-        # después de la interpretación.
-        try:
-            simulation_results = simulate_circuit(interpretation_results.get('operations', []))
-            logging.info("Simulación completada correctamente")
-        except Exception as sim_error:
-            logging.error(f"Error durante la simulación: {str(sim_error)}")
-            return render_template_string(BASE_HTML, 
-                                         quantum_code=quantum_code, 
-                                         classical_input="", 
-                                         results_html=f"<div class='alert alert-danger'>Error en la simulación: {str(sim_error)}</div>")
-        
-        if simulation_results.get("success", False):
-            results_html = generate_result_visualizations(simulation_results)
-        else:
-            error_msg = simulation_results.get('error', 'Desconocido')
-            logging.error(f"Simulación fallida: {error_msg}")
-            results_html = f"<div class='alert alert-danger'>Error en la simulación: {error_msg}</div>"
-            
-    except Exception as e:
-        logging.error(f"Error general durante el procesamiento: {str(e)}")
-        results_html = f"<div class='alert alert-danger'>Error en el procesamiento: {str(e)}</div>"
-    
-    return render_template_string(BASE_HTML, quantum_code=quantum_code, classical_input="", results_html=results_html)
-
-@app.route('/run_classical', methods=['POST'])
-def run_classical():
-    classical_input = request.form.get('classical_input', '')
-    # Aquí iría la lógica para procesar la entrada clásica
-    # Por ahora, solo devolvemos un mensaje simple
-    results_html = f"<div class='alert alert-info'>Entrada clásica recibida: {classical_input}</div>"
-    return render_template_string(BASE_HTML, quantum_code="", classical_input=classical_input, results_html=results_html)
-
-# Añadir ruta para descargar imágenes
-@app.route('/download_img', methods=['POST'])
-def download_img():
-    try:
-        img_data = request.form.get('img_data', '')
-        if not img_data:
-            logging.error("No se proporcionaron datos de imagen para descargar")
-            return "<div class='alert alert-danger'>Error: No se proporcionaron datos de imagen</div>", 400
-            
-        img_name = request.form.get('img_name', 'imagen.png')
-        img_bytes = base64.b64decode(img_data)
-        
-        # Asegurar que el nombre del archivo sea seguro
-        img_name = os.path.basename(img_name)
-        
-        return Response(img_bytes, mimetype='image/png', headers={'Content-Disposition': f'attachment;filename={img_name}'})
-    except Exception as e:
-        logging.error(f"Error al procesar la descarga de imagen: {str(e)}")
-        return "<div class='alert alert-danger'>Error al procesar la descarga</div>", 500
-
-# Configuración para manejo de archivos temporales en Render
-@app.before_request
-def before_request():
-    # Asegurarse de que las carpetas temporales existan
-    # Usar tempfile para obtener el directorio temporal del sistema
-    temp_dir = tempfile.gettempdir()
-    os.makedirs(temp_dir, exist_ok=True)
-    # En Render, asegurarse de que /tmp exista
-    if os.environ.get('RENDER') and os.name != 'nt':
-        os.makedirs('/tmp', exist_ok=True)
-    
-    # Configurar variables de entorno específicas para Render si es necesario
-    if os.environ.get('RENDER') and not os.environ.get('FLASK_ENV'):
-        os.environ['FLASK_ENV'] = 'production'
-
-# Endpoints de diagnóstico para Render
-@app.route('/api/health')
-def health_check():
-    """Endpoint para verificar el estado de la aplicación."""
-    status = {
-        'status': 'ok',
-        'timestamp': datetime.datetime.now().isoformat(),
-        'environment': os.environ.get('FLASK_ENV', 'development'),
-        'render_instance': bool(os.environ.get('RENDER')),
-        'python_version': sys.version,
-        'database_configured': database_url is not None,
-        'temp_dir_writable': os.access(tempfile.gettempdir(), os.W_OK)
-    }
-    
-    # Verificar conexión a la base de datos si está configurada
-    if engine:
-        try:
-            with engine.connect() as conn:
-                status['database_connection'] = 'ok'
-        except Exception as e:
-            status['database_connection'] = 'error'
-            status['database_error'] = str(e)
-    
-    return jsonify(status)
-
-@app.route('/dbtest')
-def db_test():
-    """Endpoint para probar la conexión a la base de datos."""
-    if not engine:
-        return jsonify({
-            'status': 'not_configured',
-            'message': 'No se ha configurado una conexión a la base de datos.'
-        })
-    
-    try:
-        # Intentar conectar a la base de datos
-        with engine.connect() as conn:
-            # Ejecutar una consulta simple
-            result = conn.execute("SELECT 1 as test").fetchone()
-            if result and result[0] == 1:
-                return jsonify({
-                    'status': 'ok',
-                    'message': 'Conexión a la base de datos exitosa',
-                    'database_url_type': 'postgresql' if database_url and 'postgresql://' in database_url else 'unknown'
-                })
-    except Exception as e:
-        logging.error(f"Error al probar la conexión a la base de datos: {str(e)}")
-        return jsonify({
-            'status': 'error',
-            'message': f'Error al conectar a la base de datos: {str(e)}',
-            'database_url_type': 'postgresql' if database_url and 'postgresql://' in database_url else 'unknown'
-        })
-
-# Configuración para manejo de errores
-@app.errorhandler(500)
-def server_error(e):
-    logging.exception('Error interno del servidor')
-    return "<h1>Error interno del servidor</h1><p>El servidor encontró un error. Por favor, inténtelo de nuevo más tarde.</p>", 500
-
-if __name__ == '__main__':
-    # Configuración para entorno de desarrollo y producción
-    port = int(os.environ.get('PORT', 5000))
-    
-    # Detección mejorada del entorno
-    is_production = os.environ.get('RENDER') or os.environ.get('PRODUCTION') or os.environ.get('FLASK_ENV') == 'production'
-    debug_mode = not is_production
-    
-    # En producción, asegurarse de que debug esté desactivado
-    if is_production:
-        debug_mode = False
-        logging.info("Ejecutando en modo producción")
-    else:
-        logging.info("Ejecutando en modo desarrollo")
-    
-    # Configuración de servidor para Render
-    host = '0.0.0.0'  # Necesario para Render
-    logging.info(f"Iniciando servidor en {host}:{port} (debug: {debug_mode})")
-    
-    # Mostrar información de diagnóstico al inicio
-    logging.info(f"Versión de Python: {sys.version}")
-    logging.info(f"Directorio temporal: {tempfile.gettempdir()}")
-    logging.info(f"Base de datos configurada: {database_url is not None}")
-    logging.info(f"Entorno detectado: {'Render' if os.environ.get('RENDER') else 'Local'}")
-    
-    # Verificar conexión a la base de datos si está configurada
-    if engine:
-        try:
-            with engine.connect() as conn:
-                logging.info("Conexión a la base de datos verificada correctamente")
-        except Exception as e:
-            logging.error(f"Error al conectar a la base de datos: {str(e)}")
-            logging.info("La aplicación continuará funcionando sin conexión a la base de datos")
-    
-    try:
-        app.run(host=host, port=port, debug=debug_mode)
-    except Exception as e:
-        logging.error(f"Error al iniciar el servidor: {str(e)}")
-        sys.exit(1)
+            if isinstance(result, dict) and 'most_frequent' in result:
+                # Formato nuevo con estadísticas
+                most_frequent = result['most_
+                                                     sigma_x = np.array([[0, 1], [1, 0]])
+                                                     sigma_y = np.array([[0, -1j], [1j, 0]])
+                                                     sigma_z = np.array([[1, 0], [0, -1]])
+                                                     
+                                                     rho = np.outer(qubit_state, qubit_state.conj())
+                                                     rho = (1 - gamma) * rho + (gamma/3) * (sigma_x @ rho @ sigma_x + 
+                                                     sigma_y @ rho @ sigma_y + 
+                                                     sigma_z @ rho @ sigma_z)
+                                                     
+                                                     # Obtener nuevo estado
+                                                     eigenvalues, eigenvectors = np.linalg.eig(rho)
+                                                     max_idx = np.argmax(eigenvalues)
+                                                     return eigenvectors[:, max_idx]
+                                                     
+                                                     

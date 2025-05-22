@@ -29,6 +29,28 @@ class QuantumGUI:
     PREMIUM_EXPORT_LABEL = "Exportación Premium"
     ADV_METRICS_LABEL = "Métricas Avanzadas"
     ASSISTANT_LABEL = "Asistente Cuántico (IA)"
+    # --- NUEVAS FUNCIONALIDADES ---
+    THEME_SELECTOR_LABEL = "Selector de Temas"
+    USER_PROFILE_LABEL = "Perfil de Usuario"
+    CUSTOM_CIRCUIT_LABEL = "Circuitos Personalizados"
+    QUANTUM_GAMES_LABEL = "Juegos Cuánticos"
+    LEARNING_PATH_LABEL = "Ruta de Aprendizaje"
+    REAL_TIME_COLLAB_LABEL = "Colaboración en Tiempo Real"
+    QUANTUM_CHALLENGES_LABEL = "Desafíos Cuánticos"
+    HARDWARE_COMPARISON_LABEL = "Comparación de Hardware"
+    QUANTUM_NOTEBOOK_LABEL = "Cuaderno Cuántico"
+    VOICE_COMMANDS_LABEL = "Comandos de Voz"
+    # --- NUEVAS FUNCIONALIDADES ---
+    THEME_SELECTOR_LABEL = "Selector de Temas"
+    USER_PROFILE_LABEL = "Perfil de Usuario"
+    CUSTOM_CIRCUIT_LABEL = "Circuitos Personalizados"
+    QUANTUM_GAMES_LABEL = "Juegos Cuánticos"
+    LEARNING_PATH_LABEL = "Ruta de Aprendizaje"
+    REAL_TIME_COLLAB_LABEL = "Colaboración en Tiempo Real"
+    QUANTUM_CHALLENGES_LABEL = "Desafíos Cuánticos"
+    HARDWARE_COMPARISON_LABEL = "Comparación de Hardware"
+    QUANTUM_NOTEBOOK_LABEL = "Cuaderno Cuántico"
+    VOICE_COMMANDS_LABEL = "Comandos de Voz"
     # --- NEW FEATURES ---
     ADVANCED_QUANTUM_LABEL = "Quantum Avanzado"
     MULTI_QUBIT_VISUALIZATION = "Visualización Multi-Qubit"
@@ -182,6 +204,20 @@ class QuantumGUI:
         advanced_menu.add_command(label=self.HYBRID_CIRCUITS, command=self.show_hybrid_circuits)
         advanced_menu.add_command(label=self.AI_EXPLANATIONS, command=self.show_ai_explanations)
         advanced_menu.add_command(label=self.COLLABORATIVE_MODE, command=self.show_collaborative_mode)
+        
+        # Menú Personalización
+        personal_menu = tk.Menu(menubar, tearoff=0)
+        menubar.add_cascade(label="Personalización", menu=personal_menu)
+        personal_menu.add_command(label=self.THEME_SELECTOR_LABEL, command=self._show_theme_selector)
+        personal_menu.add_command(label=self.USER_PROFILE_LABEL, command=self._show_user_profile)
+        personal_menu.add_command(label=self.CUSTOM_CIRCUIT_LABEL, command=self._show_custom_circuits)
+        personal_menu.add_command(label=self.QUANTUM_GAMES_LABEL, command=self._show_quantum_games)
+        personal_menu.add_command(label=self.LEARNING_PATH_LABEL, command=self._show_learning_path)
+        personal_menu.add_command(label=self.REAL_TIME_COLLAB_LABEL, command=self._show_real_time_collab)
+        personal_menu.add_command(label=self.QUANTUM_CHALLENGES_LABEL, command=self._show_quantum_challenges)
+        personal_menu.add_command(label=self.HARDWARE_COMPARISON_LABEL, command=self._show_hardware_comparison)
+        personal_menu.add_command(label=self.QUANTUM_NOTEBOOK_LABEL, command=self._show_quantum_notebook)
+        personal_menu.add_command(label=self.VOICE_COMMANDS_LABEL, command=self._show_voice_commands)
         # Menú Historial y Decoherencia
         menubar.add_command(label="Historial de Circuitos", command=self._show_circuit_history)
         menubar.add_command(label="Decoherencia Temporal", command=self._show_decoherence_sim)
