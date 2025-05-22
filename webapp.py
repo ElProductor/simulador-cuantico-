@@ -586,18 +586,10 @@ def generate_circuit_visualization(operations, theme='light'):
                 justify-content:center;
                 font-weight:bold;
                 z-index:10;
-            """
-                    position:absolute;
-                    left:{60 + time_slot * 60 + 15}px;
-                    top:{20 + min_qubit * 60 + 15}px;
-                    width:2px;
-                    height:{(max_qubit - min_qubit) * 60}px;
-                    background-color:{theme_config['line']};
-                """
+            line_style = f"position:absolute; left:{60 + time_slot * 60 + 15}px; top:{20 + min_qubit * 60 + 15}px; width:2px; height:{(max_qubit - min_qubit) * 60}px; background-color:{theme_config['line']};"
+
             
-                html_output += f"""
-                <div class='connection-line' style='{line_style}'></div>
-                """
+            html_output += f"<div class='connection-line' style='{line_style}'></div>"
     
     html_output += """
         </div>
@@ -745,33 +737,34 @@ def generate_result_visualizations(results, visualization_type='all', theme='lig
     html_output = f"<div class='results-container' style='background-color:{theme_config['bg_color']};color:{theme_config['text_color']};padding:20px;border-radius:10px;'>"
     
     # Información de la simulación
-    html_output += f"""
-    <div class='simulation-info mb-4 p-3' style='background-color:{theme_config['bg_color']};border-left:4px solid {theme_config['primary_color']};'>
-        <h3 style='color:{theme_config['primary_color']};'>{lang['title']}</h3>
-        <div class='row'>
-            <div class='col-md-3'>
-                <strong>{lang['execution_time']}:</strong> {results.get('execution_time', 0):.4f} {lang['seconds']}
-            </div>
-            <div class='col-md-3'>
-                <strong>{lang['shots']}:</strong> {results.get('shots', 1)}
-            </div>
-            <div class='col-md-3'>
-                <strong>{lang['noise']}:</strong> {results.get('noise_type', 'none')}
-            </div>
-            <div class='col-md-3'>
-                <strong>{lang['backend']}:</strong> {results.get('backend', 'local')}
-            </div>
-        </div>
-        <div class='row mt-2'>
-            <div class='col-md-3'>
-                <strong>{lang['optimization']}:</strong> {lang['enabled'] if results.get('optimization_level', 0) > 0 else lang['disabled']}
-            </div>
-            <div class='col-md-3'>
-                <strong>{lang['error_correction']}:</strong> {lang['enabled'] if results.get('error_correction', False) else lang['disabled']}
-            </div>
-        </div>
-    </div>
-    """
+    info_html = [
+        f"<div class='simulation-info mb-4 p-3' style='background-color:{theme_config["bg_color"]};border-left:4px solid {theme_config["primary_color"]};'>",
+        f"<h3 style='color:{theme_config["primary_color"]};'>{lang["title"]}</h3>",
+        "<div class='row'>",
+        "<div class='col-md-3'>",
+        f"<strong>{lang["execution_time"]}:</strong> {results.get('execution_time', 0):.4f} {lang["seconds"]}",
+        "</div>",
+        "<div class='col-md-3'>",
+        f"<strong>{lang["shots"]}:</strong> {results.get('shots', 1)}",
+        "</div>",
+        "<div class='col-md-3'>",
+        f"<strong>{lang["noise"]}:</strong> {results.get('noise_type', 'none')}",
+        "</div>",
+        "<div class='col-md-3'>",
+        f"<strong>{lang["backend"]}:</strong> {results.get('backend', 'local')}",
+        "</div>",
+        "</div>",
+        "<div class='row mt-2'>",
+        "<div class='col-md-3'>",
+        f"<strong>{lang["optimization"]}:</strong> {lang["enabled"] if results.get('optimization_level', 0) > 0 else lang["disabled"]}",
+        "</div>",
+        "<div class='col-md-3'>",
+        f"<strong>{lang["error_correction"]}:</strong> {lang["enabled"] if results.get('error_correction', False) else lang["disabled"]}",
+        "</div>",
+        "</div>",
+        "</div>"
+    ]
+    html_output += "\n    ".join(info_html)
     
     # Tabla de resultados de medición
     measurements = results.get("measurements", {})
