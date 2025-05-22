@@ -34,6 +34,10 @@ logging.basicConfig(
 app = Flask(__name__)
 app.secret_key = os.environ.get('SECRET_KEY', os.urandom(24).hex())
 
+# Configuración para Render
+host = os.environ.get('HOST', '0.0.0.0')
+port = int(os.environ.get('PORT', 5000))
+
 # Configuración para el chat IA
 class AIChat:
     def __init__(self):
@@ -133,6 +137,31 @@ def get_tutorial(tutorial_id):
     
     return jsonify(tutorials.get(tutorial_id, {'error': 'Tutorial no encontrado'}))
 
+# Endpoints para monitorización en Render
+@app.route('/api/health', methods=['GET'])
+def health_check():
+    """Endpoint para verificar el estado de la aplicación y sus dependencias."""
+    status = {
+        'app': 'running',
+        'database': 'connected' if engine else 'not_configured',
+        'timestamp': datetime.datetime.utcnow().isoformat(),
+        'version': '1.0.0'
+    }
+    return jsonify(status)
+
+@app.route('/dbtest', methods=['GET'])
+def test_db_connection():
+    """Endpoint para probar específicamente la conexión a la base de datos."""
+    if not engine:
+        return jsonify({'error': 'Base de datos no configurada'}), 503
+    
+    try:
+        with engine.connect() as conn:
+            conn.execute('SELECT 1')
+        return jsonify({'status': 'success', 'message': 'Conexión a la base de datos verificada'})
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
 # Función para corregir URL de PostgreSQL para SQLAlchemy
 def fix_postgres_url(url):
     """Corrige la URL de PostgreSQL para SQLAlchemy si es necesario."""
@@ -221,7 +250,21 @@ def simulate_circuit(circuit_operations, decoherence_time=0.0, noise_type='depol
     
     Returns:
         dict: Resultados de la simulación con métricas avanzadas
+    
+    Raises:
+        TimeoutError: Si la simulación excede el tiempo máximo configurado
+        ValueError: Si los parámetros de entrada son inválidos
     """
+    # Validación de parámetros
+    if noise_level < 0 or noise_level > 1:
+        raise ValueError("El nivel de ruido debe estar entre 0 y 1")
+    
+    if shots <= 0:
+        raise ValueError("El número de shots debe ser mayor que 0")
+    
+    # Configurar timeout
+    start_time = time.time()
+    timeout_time = start_time + SIMULATION_TIMEOUT
     start_time = time.time()
     metrics = {
         'execution_time': 0,
@@ -515,7 +558,6 @@ def generate_circuit_visualization(operations, theme='light'):
             justify-content:center;
             font-weight:bold;
             z-index:10;
-        """
         """
         
         html_output += f"""
