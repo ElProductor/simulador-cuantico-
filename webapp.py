@@ -727,19 +727,14 @@ def generate_result_visualizations(results, visualization_type='all', theme='lig
         for qubit, result in measurements.items():
             if isinstance(result, dict) and 'most_frequent' in result:
                 # Formato nuevo con estadísticas
-                most_frequent = result['most_
-                                                     sigma_x = np.array([[0, 1], [1, 0]])
-                                                     sigma_y = np.array([[0, -1j], [1j, 0]])
-                                                     sigma_z = np.array([[1, 0], [0, -1]])
-                                                     
-                                                     rho = np.outer(qubit_state, qubit_state.conj())
-                                                     rho = (1 - gamma) * rho + (gamma/3) * (sigma_x @ rho @ sigma_x + 
-                                                     sigma_y @ rho @ sigma_y + 
-                                                     sigma_z @ rho @ sigma_z)
-                                                     
-                                                     # Obtener nuevo estado
-                                                     eigenvalues, eigenvectors = np.linalg.eig(rho)
-                                                     max_idx = np.argmax(eigenvalues)
-                                                     return eigenvectors[:, max_idx]
-                                                     
-                                                     
+                most_frequent = result['most_frequent']
+                probability = result.get('probability', 0)
+                counts = result.get('counts', {})
+                
+                # Añadir fila a la tabla
+                html_output += f"<tr><td>{qubit}</td><td>{most_frequent}</td><td>{probability:.4f}</td><td>{counts}</td></tr>"
+            else:
+                # Formato antiguo simple
+                html_output += f"<tr><td>{qubit}</td><td>{result}</td><td>N/A</td><td>N/A</td></tr>"
+        
+        html_output += "</tbody></table>"
