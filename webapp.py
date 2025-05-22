@@ -516,6 +516,7 @@ def generate_circuit_visualization(operations, theme='light'):
             font-weight:bold;
             z-index:10;
         """
+        """
         
         html_output += f"""
             <div class='gate' style='{gate_style}' title='{gate} en q{qubits[qubit_idx]}'>
@@ -531,17 +532,30 @@ def generate_circuit_visualization(operations, theme='light'):
             # Línea vertical que conecta los qubits
             line_style = f"""
                 position:absolute;
-                left:{left + 15}px;
-                top:{(min_qubit * 60) + 35}px;
-                width:2px;
-                height:{(max_qubit - min_qubit) * 60}px;
-                background-color:{theme_config['line']};
-                z-index:5;
+                left:{left}px;
+                top:{top - 15}px;
+                width:30px;
+                height:30px;
+                background-color:{theme_config['gate']};
+                border:1px solid {theme_config['border']};
+                border-radius:4px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                font-weight:bold;
+                z-index:10;
             """
+                    position:absolute;
+                    left:{60 + time_slot * 60 + 15}px;
+                    top:{20 + min_qubit * 60 + 15}px;
+                    width:2px;
+                    height:{(max_qubit - min_qubit) * 60}px;
+                    background-color:{theme_config['line']};
+                """
             
-            html_output += f"""
+                html_output += f"""
                 <div class='connection-line' style='{line_style}'></div>
-            """
+                """
     
     html_output += """
         </div>
@@ -731,10 +745,18 @@ def generate_result_visualizations(results, visualization_type='all', theme='lig
                 probability = result.get('probability', 0)
                 counts = result.get('counts', {})
                 
+                # Formatear los conteos como string para mostrar en HTML
+                counts_str = ', '.join([f"{k}: {v}" for k, v in counts.items()]) if isinstance(counts, dict) else str(counts)
+                
                 # Añadir fila a la tabla
-                html_output += f"<tr><td>{qubit}</td><td>{most_frequent}</td><td>{probability:.4f}</td><td>{counts}</td></tr>"
+                html_output += f"<tr><td>{qubit}</td><td>{most_frequent}</td><td>{probability:.4f}</td><td>{counts_str}</td></tr>"
             else:
                 # Formato antiguo simple
                 html_output += f"<tr><td>{qubit}</td><td>{result}</td><td>N/A</td><td>N/A</td></tr>"
         
         html_output += "</tbody></table>"
+    
+    # Cerrar el contenedor principal
+    html_output += "</div>"
+    
+    return html_output
