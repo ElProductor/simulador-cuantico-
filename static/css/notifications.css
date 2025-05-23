@@ -1,0 +1,237 @@
+/**
+ * notifications.css - Estilos para notificaciones y elementos adicionales
+ * Complementa los estilos principales para el Simulador Cuántico
+ */
+
+/* Notificaciones */
+.notification {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    background: var(--card-bg);
+    border-left: 4px solid var(--accent-color);
+    padding: 1rem;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px var(--shadow-color);
+    z-index: 1000;
+    max-width: 350px;
+    transform: translateX(120%);
+    transition: transform 0.3s ease;
+}
+
+.notification.show {
+    transform: translateX(0);
+}
+
+.notification.closing {
+    transform: translateX(120%);
+}
+
+.notification-icon {
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.notification-content {
+    flex: 1;
+}
+
+.notification-close {
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity 0.3s ease;
+}
+
+.notification-close:hover {
+    opacity: 1;
+}
+
+/* Tipos de notificación */
+.notification.success {
+    border-left-color: var(--success-color);
+}
+
+.notification.success .notification-icon {
+    color: var(--success-color);
+}
+
+.notification.error {
+    border-left-color: var(--error-color);
+}
+
+.notification.error .notification-icon {
+    color: var(--error-color);
+}
+
+.notification.warning {
+    border-left-color: var(--warning-color);
+}
+
+.notification.warning .notification-icon {
+    color: var(--warning-color);
+}
+
+.notification.info {
+    border-left-color: var(--accent-color);
+}
+
+.notification.info .notification-icon {
+    color: var(--accent-color);
+}
+
+/* Estilos para la matriz de estado */
+.state-matrix {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 1rem;
+    font-family: var(--font-family);
+}
+
+.state-matrix th {
+    background: rgba(255, 255, 255, 0.1);
+    padding: 0.8rem;
+    text-align: left;
+    color: var(--accent-color);
+    font-weight: 600;
+}
+
+.state-matrix td {
+    padding: 0.8rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.state-matrix tr:hover {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Estilos para esferas de Bloch */
+.bloch-sphere-container {
+    display: inline-block;
+    margin: 1rem;
+    text-align: center;
+}
+
+.bloch-sphere-label {
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    color: var(--accent-color);
+}
+
+.bloch-sphere {
+    width: 200px;
+    height: 200px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.bloch-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 300px;
+    color: rgba(255, 255, 255, 0.5);
+    font-style: italic;
+}
+
+/* Estilos para puertas en el circuito */
+.quantum-gate.selected {
+    transform: scale(1.1);
+    box-shadow: 0 0 15px var(--accent-color);
+    border: 2px solid var(--accent-color);
+}
+
+.quantum-gate.controlled-gate {
+    position: relative;
+}
+
+.quantum-gate.controlled-gate::after {
+    content: '•';
+    position: absolute;
+    top: -15px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 24px;
+    color: white;
+}
+
+.quantum-gate.parameterized-gate {
+    position: relative;
+}
+
+.quantum-gate.parameterized-gate::before {
+    content: 'θ';
+    position: absolute;
+    top: -10px;
+    right: -5px;
+    font-size: 12px;
+    color: white;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Indicador de carga */
+.loading-indicator {
+    display: inline-block;
+    margin-right: 0.5rem;
+    animation: spin 1s linear infinite;
+}
+
+/* Tooltips */
+.tooltip {
+    position: absolute;
+    background: var(--card-bg);
+    color: var(--text-color);
+    padding: 0.5rem 1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
+    box-shadow: 0 5px 15px var(--shadow-color);
+    z-index: 1000;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.tooltip.show {
+    opacity: 1;
+}
+
+/* Estilos para el modo avanzado */
+.advanced-feature {
+    display: none;
+}
+
+/* Estilos para diferentes layouts */
+body.layout-compact .main-container {
+    gap: 1rem;
+}
+
+body.layout-compact .quantum-card {
+    padding: 1rem;
+}
+
+body.layout-expanded .main-container {
+    gap: 3rem;
+}
+
+body.layout-expanded .quantum-card {
+    padding: 3rem;
+}
+
+body.layout-professional {
+    --accent-color: #3498db;
+    --secondary-color: #2ecc71;
+    --tertiary-color: #9b59b6;
+    --gradient-1: linear-gradient(45deg, #3498db, #2980b9);
+    --gradient-2: linear-gradient(45deg, #9b59b6, #8e44ad);
+    --gradient-3: linear-gradient(45deg, #2ecc71, #27ae60);
+}

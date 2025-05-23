@@ -1,0 +1,429 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Cuántico Avanzado</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="/static/css/notifications.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="logo">
+            <i class="fas fa-atom"></i>
+            <span>Simulador Cuántico</span>
+        </div>
+        <nav class="nav-links">
+            <div class="nav-item" data-section="home">Inicio</div>
+            <div class="nav-item" data-section="simulator">Simulador</div>
+            <div class="nav-item" data-section="algorithms">Algoritmos</div>
+            <div class="nav-item" data-section="learning">Aprendizaje</div>
+            <div class="nav-item" data-section="community">Comunidad</div>
+        </nav>
+        <div class="user-controls">
+            <div class="theme-switcher" id="themeSwitcher"></div>
+            <div class="user-profile">
+                <img src="/static/img/default-avatar.png" alt="Usuario" id="userAvatar">
+            </div>
+        </div>
+    </header>
+
+    <div class="main-container">
+        <!-- Panel de Configuración Izquierdo -->
+        <aside class="sidebar left-sidebar">
+            <div class="sidebar-section">
+                <h3>Configuración de Simulación</h3>
+                <div class="config-option">
+                    <label for="simulationType">Tipo de Simulación:</label>
+                    <select id="simulationType" class="quantum-select">
+                        <option value="quantum">Cuántica</option>
+                        <option value="classical">Clásica</option>
+                        <option value="hybrid">Híbrida</option>
+                        <option value="variational">Variacional</option>
+                        <option value="adiabatic">Adiabática</option>
+                        <option value="annealing">Recocido Cuántico</option>
+                        <option value="quantum_walk">Caminata Cuántica</option>
+                        <option value="quantum_ml">Machine Learning Cuántico</option>
+                        <option value="quantum_chemistry">Química Cuántica</option>
+                        <option value="quantum_finance">Finanzas Cuánticas</option>
+                        <option value="quantum_optimization">Optimización Cuántica</option>
+                        <option value="quantum_error_correction">Corrección de Errores</option>
+                        <option value="quantum_cryptography">Criptografía Cuántica</option>
+                        <option value="quantum_teleportation">Teleportación Cuántica</option>
+                        <option value="quantum_fourier">Transformada Cuántica de Fourier</option>
+                        <option value="quantum_phase_estimation">Estimación de Fase Cuántica</option>
+                    </select>
+                </div>
+                
+                <div class="config-option">
+                    <label for="noiseModel">Modelo de Ruido:</label>
+                    <select id="noiseModel" class="quantum-select">
+                        <option value="ideal">Ideal (Sin ruido)</option>
+                        <option value="depolarizing">Despolarización</option>
+                        <option value="amplitude_damping">Amortiguamiento de Amplitud</option>
+                        <option value="phase_damping">Amortiguamiento de Fase</option>
+                        <option value="bit_flip">Inversión de Bit</option>
+                        <option value="phase_flip">Inversión de Fase</option>
+                        <option value="bit_phase_flip">Inversión de Bit y Fase</option>
+                        <option value="thermal_relaxation">Relajación Térmica</option>
+                        <option value="measurement_error">Error de Medición</option>
+                        <option value="crosstalk">Interferencia entre Qubits</option>
+                        <option value="readout_error">Error de Lectura</option>
+                        <option value="gate_error">Error en Puertas</option>
+                        <option value="coherent_noise">Ruido Coherente</option>
+                        <option value="incoherent_noise">Ruido Incoherente</option>
+                        <option value="realistic">Realista Combinado</option>
+                        <option value="custom">Personalizado</option>
+                    </select>
+                </div>
+                
+                <div class="config-option">
+                    <label for="optimizationAlgorithm">Algoritmo de Optimización:</label>
+                    <select id="optimizationAlgorithm" class="quantum-select">
+                        <option value="nelder_mead">Nelder-Mead</option>
+                        <option value="powell">Powell</option>
+                        <option value="cobyla">COBYLA</option>
+                        <option value="slsqp">SLSQP</option>
+                        <option value="spsa">SPSA</option>
+                        <option value="gradient_descent">Descenso de Gradiente</option>
+                        <option value="adam">ADAM</option>
+                        <option value="adagrad">AdaGrad</option>
+                        <option value="adadelta">AdaDelta</option>
+                        <option value="rmsprop">RMSProp</option>
+                        <option value="qng">Gradiente Natural Cuántico</option>
+                        <option value="qaoa">QAOA</option>
+                        <option value="vqe">VQE</option>
+                        <option value="qgd">Descenso de Gradiente Cuántico</option>
+                        <option value="bayesian">Optimización Bayesiana</option>
+                        <option value="genetic">Algoritmo Genético</option>
+                        <option value="particle_swarm">Enjambre de Partículas</option>
+                        <option value="simulated_annealing">Recocido Simulado</option>
+                        <option value="quantum_annealing">Recocido Cuántico</option>
+                    </select>
+                </div>
+                
+                <div class="config-option">
+                    <label for="numQubits">Número de Qubits:</label>
+                    <div class="range-container">
+                        <input type="range" id="numQubits" min="1" max="20" value="3" class="quantum-range">
+                        <span id="numQubitsValue">3</span>
+                    </div>
+                </div>
+                
+                <div class="config-option">
+                    <label for="numShots">Número de Disparos:</label>
+                    <div class="range-container">
+                        <input type="range" id="numShots" min="1" max="10000" value="1024" class="quantum-range">
+                        <span id="numShotsValue">1024</span>
+                    </div>
+                </div>
+                
+                <div class="config-option checkbox-option">
+                    <input type="checkbox" id="realTime" class="quantum-checkbox">
+                    <label for="realTime">Simulación en Tiempo Real</label>
+                </div>
+                
+                <div class="config-option checkbox-option">
+                    <input type="checkbox" id="parallelExecution" class="quantum-checkbox" checked>
+                    <label for="parallelExecution">Ejecución Paralela</label>
+                </div>
+                
+                <div class="config-option">
+                    <label for="hardwareProfile">Perfil de Hardware:</label>
+                    <select id="hardwareProfile" class="quantum-select">
+                        <option value="ideal">Ideal</option>
+                        <option value="ibm_quantum">IBM Quantum</option>
+                        <option value="rigetti">Rigetti</option>
+                        <option value="ionq">IonQ</option>
+                        <option value="google_quantum">Google Quantum</option>
+                        <option value="custom">Personalizado</option>
+                    </select>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>Puertas Cuánticas</h3>
+                <div class="gates-grid">
+                    <div class="quantum-gate" data-gate="PAULI_X">X</div>
+                    <div class="quantum-gate" data-gate="PAULI_Y">Y</div>
+                    <div class="quantum-gate" data-gate="PAULI_Z">Z</div>
+                    <div class="quantum-gate" data-gate="HADAMARD">H</div>
+                    <div class="quantum-gate" data-gate="PHASE">S</div>
+                    <div class="quantum-gate" data-gate="T_GATE">T</div>
+                    <div class="quantum-gate" data-gate="CNOT">CX</div>
+                    <div class="quantum-gate" data-gate="CZ">CZ</div>
+                    <div class="quantum-gate" data-gate="SWAP">SW</div>
+                    <div class="quantum-gate" data-gate="RX">RX</div>
+                    <div class="quantum-gate" data-gate="RY">RY</div>
+                    <div class="quantum-gate" data-gate="RZ">RZ</div>
+                    <div class="quantum-gate" data-gate="TOFFOLI">TOF</div>
+                    <div class="quantum-gate" data-gate="FREDKIN">FRE</div>
+                    <div class="quantum-gate" data-gate="QFT">QFT</div>
+                    <div class="quantum-gate add-gate" data-gate="CUSTOM">+</div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Área Principal de Contenido -->
+        <main class="content-area">
+            <div class="quantum-card circuit-builder-card">
+                <div class="card-header">
+                    <h2 class="card-title">Constructor de Circuitos Cuánticos</h2>
+                    <div class="card-actions">
+                        <button id="clearCircuit" class="quantum-button secondary">Limpiar</button>
+                        <button id="saveCircuit" class="quantum-button">Guardar</button>
+                    </div>
+                </div>
+                
+                <div class="circuit-builder" id="circuitBuilder">
+                    <!-- Las líneas de qubits se generarán dinámicamente con JavaScript -->
+                </div>
+                
+                <div class="circuit-controls">
+                    <button id="addQubit" class="quantum-button secondary">+ Qubit</button>
+                    <button id="removeQubit" class="quantum-button secondary">- Qubit</button>
+                    <button id="runSimulation" class="quantum-button primary">Ejecutar Simulación</button>
+                </div>
+            </div>
+            
+            <div class="quantum-card results-card">
+                <div class="card-header">
+                    <h2 class="card-title">Resultados de la Simulación</h2>
+                    <div class="view-controls">
+                        <button class="view-button active" data-view="histogram"><i class="fas fa-chart-bar"></i></button>
+                        <button class="view-button" data-view="bloch"><i class="fas fa-globe"></i></button>
+                        <button class="view-button" data-view="matrix"><i class="fas fa-table"></i></button>
+                        <button class="view-button" data-view="circuit"><i class="fas fa-project-diagram"></i></button>
+                    </div>
+                </div>
+                
+                <div class="results-container">
+                    <div class="result-view active" id="histogramView">
+                        <canvas id="histogramChart"></canvas>
+                    </div>
+                    
+                    <div class="result-view" id="blochView">
+                        <div class="bloch-spheres" id="blochSpheres"></div>
+                    </div>
+                    
+                    <div class="result-view" id="matrixView">
+                        <div class="matrix-container" id="stateMatrix"></div>
+                    </div>
+                    
+                    <div class="result-view" id="circuitView">
+                        <canvas id="circuitDiagram"></canvas>
+                    </div>
+                </div>
+                
+                <div class="simulation-metrics">
+                    <div class="metric-item">
+                        <span class="metric-label">Entrelazamiento:</span>
+                        <span class="metric-value" id="entanglementValue">0.00</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Fidelidad:</span>
+                        <span class="metric-value" id="fidelityValue">1.00</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Tiempo de Ejecución:</span>
+                        <span class="metric-value" id="executionTime">0 ms</span>
+                    </div>
+                    <div class="metric-item">
+                        <span class="metric-label">Profundidad del Circuito:</span>
+                        <span class="metric-value" id="circuitDepth">0</span>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- Panel Derecho para Algoritmos y Tutoriales -->
+        <aside class="sidebar right-sidebar">
+            <div class="sidebar-section">
+                <h3>Algoritmos Predefinidos</h3>
+                <div class="algorithm-list">
+                    <div class="algorithm-item" data-algorithm="grover">
+                        <i class="fas fa-search"></i>
+                        <span>Algoritmo de Grover</span>
+                    </div>
+                    <div class="algorithm-item" data-algorithm="shor">
+                        <i class="fas fa-calculator"></i>
+                        <span>Algoritmo de Shor</span>
+                    </div>
+                    <div class="algorithm-item" data-algorithm="qft">
+                        <i class="fas fa-wave-square"></i>
+                        <span>Transformada Cuántica de Fourier</span>
+                    </div>
+                    <div class="algorithm-item" data-algorithm="vqe">
+                        <i class="fas fa-atom"></i>
+                        <span>VQE</span>
+                    </div>
+                    <div class="algorithm-item" data-algorithm="qaoa">
+                        <i class="fas fa-project-diagram"></i>
+                        <span>QAOA</span>
+                    </div>
+                    <div class="algorithm-item" data-algorithm="teleportation">
+                        <i class="fas fa-exchange-alt"></i>
+                        <span>Teleportación Cuántica</span>
+                    </div>
+                    <div class="algorithm-item" data-algorithm="bernstein_vazirani">
+                        <i class="fas fa-code"></i>
+                        <span>Bernstein-Vazirani</span>
+                    </div>
+                    <div class="algorithm-item" data-algorithm="deutsch_jozsa">
+                        <i class="fas fa-balance-scale"></i>
+                        <span>Deutsch-Jozsa</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>Tutoriales y Aprendizaje</h3>
+                <div class="tutorial-list">
+                    <div class="tutorial-item" data-tutorial="basics">
+                        <i class="fas fa-book"></i>
+                        <span>Fundamentos Cuánticos</span>
+                    </div>
+                    <div class="tutorial-item" data-tutorial="superposition">
+                        <i class="fas fa-layer-group"></i>
+                        <span>Superposición</span>
+                    </div>
+                    <div class="tutorial-item" data-tutorial="entanglement">
+                        <i class="fas fa-link"></i>
+                        <span>Entrelazamiento</span>
+                    </div>
+                    <div class="tutorial-item" data-tutorial="gates">
+                        <i class="fas fa-door-open"></i>
+                        <span>Puertas Cuánticas</span>
+                    </div>
+                    <div class="tutorial-item" data-tutorial="algorithms">
+                        <i class="fas fa-cogs"></i>
+                        <span>Algoritmos Cuánticos</span>
+                    </div>
+                    <div class="tutorial-item" data-tutorial="error_correction">
+                        <i class="fas fa-shield-alt"></i>
+                        <span>Corrección de Errores</span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="sidebar-section">
+                <h3>Configuración de Usuario</h3>
+                <div class="user-settings">
+                    <div class="setting-item">
+                        <label for="userTheme">Tema:</label>
+                        <select id="userTheme" class="quantum-select">
+                            <option value="dark">Oscuro</option>
+                            <option value="light">Claro</option>
+                            <option value="quantum">Cuántico</option>
+                            <option value="matrix">Matrix</option>
+                            <option value="neon">Neón</option>
+                        </select>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label for="userLanguage">Idioma:</label>
+                        <select id="userLanguage" class="quantum-select">
+                            <option value="es">Español</option>
+                            <option value="en">English</option>
+                            <option value="fr">Français</option>
+                            <option value="de">Deutsch</option>
+                            <option value="pt">Português</option>
+                        </select>
+                    </div>
+                    
+                    <div class="setting-item">
+                        <label for="userLayout">Diseño:</label>
+                        <select id="userLayout" class="quantum-select">
+                            <option value="standard">Estándar</option>
+                            <option value="compact">Compacto</option>
+                            <option value="expanded">Expandido</option>
+                            <option value="professional">Profesional</option>
+                        </select>
+                    </div>
+                    
+                    <div class="setting-item checkbox-option">
+                        <input type="checkbox" id="advancedMode" class="quantum-checkbox">
+                        <label for="advancedMode">Modo Avanzado</label>
+                    </div>
+                    
+                    <div class="setting-item checkbox-option">
+                        <input type="checkbox" id="autoSave" class="quantum-checkbox" checked>
+                        <label for="autoSave">Autoguardado</label>
+                    </div>
+                    
+                    <div class="setting-item checkbox-option">
+                        <input type="checkbox" id="showTooltips" class="quantum-checkbox" checked>
+                        <label for="showTooltips">Mostrar Tooltips</label>
+                    </div>
+                </div>
+            </div>
+        </aside>
+    </div>
+
+    <footer class="footer">
+        <div class="footer-content">
+            <div class="footer-section">
+                <h4>Simulador Cuántico</h4>
+                <p>Una plataforma educativa y de investigación para la computación cuántica</p>
+            </div>
+            
+            <div class="footer-section">
+                <h4>Enlaces Rápidos</h4>
+                <ul>
+                    <li><a href="#">Documentación</a></li>
+                    <li><a href="#">API</a></li>
+                    <li><a href="#">Recursos</a></li>
+                    <li><a href="#">Comunidad</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-section">
+                <h4>Contacto</h4>
+                <ul>
+                    <li><a href="#">Soporte</a></li>
+                    <li><a href="#">Feedback</a></li>
+                    <li><a href="#">Reportar Errores</a></li>
+                </ul>
+            </div>
+            
+            <div class="footer-section">
+                <h4>Síguenos</h4>
+                <div class="social-links">
+                    <a href="#"><i class="fab fa-github"></i></a>
+                    <a href="#"><i class="fab fa-twitter"></i></a>
+                    <a href="#"><i class="fab fa-linkedin"></i></a>
+                    <a href="#"><i class="fab fa-youtube"></i></a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            <p>&copy; 2023 Simulador Cuántico. Todos los derechos reservados.</p>
+        </div>
+    </footer>
+
+    <!-- Modal para configuración avanzada -->
+    <div class="modal" id="advancedConfigModal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Configuración Avanzada</h3>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <!-- Contenido dinámico para configuración avanzada -->
+            </div>
+            <div class="modal-footer">
+                <button class="quantum-button secondary" id="cancelConfig">Cancelar</button>
+                <button class="quantum-button" id="saveConfig">Guardar</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/js/main.js"></script>
+    <script src="/static/js/simulator.js"></script>
+    <script src="/static/js/visualization.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+</body>
+</html>
