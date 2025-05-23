@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from datetime import datetime
 import copy
- import matplotlib.colors as mcolors
+import matplotlib.colors as mcolors
 from matplotlib.patches import Patch
 from matplotlib.lines import Line2D
 
