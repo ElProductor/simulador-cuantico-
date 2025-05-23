@@ -554,18 +554,6 @@ class AdvancedQuantumSimulator:
                         elif error_type == "Z":
                             if self._get_bit(i, target) == 1:
                                 result[i] = -result[i]
-                    
-                    # Amortiguamiento de amplitud
-                    if self._get_bit(i, target) == 1 and random.random() < amp_damp_prob:
-                        j = self._flip_bit(i, target)
-                        amp = result[i]
-                        result[i] = 0
-                        result[j] += amp
-                    
-                    # Amortiguamiento de fase
-                    if self._get_bit(i, target) == 1 and random.random() < phase_damp_prob:
-                        phase = random.uniform(0, 2 * math.pi)
-                        result[i] *= complex(math.cos(phase), math.sin(phase))
         
         # Normalizar el estado después de aplicar ruido
         norm = math.sqrt(sum(abs(amp)**2 for amp in result))
@@ -917,12 +905,12 @@ def ensure_directories():
 def generate_advanced_html():
     """Generar interfaz HTML avanzada"""
     return """<!DOCTYPE html>
-<html lang="es">
+<html lang=\"es\">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset=\"UTF-8\">
+    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">
     <title>QuantumForge - Simulador Híbrido Avanzado</title>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href=\"https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css\" rel=\"stylesheet\">
     <style>
         :root {
             --primary-color: #00d4ff;
@@ -1298,4 +1286,13 @@ def generate_advanced_html():
         @media (max-width: 768px) {
             .main-container {
                 grid-template-columns: 1fr;
-                gap: 1rem;
+            gap: 1rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Contenido del cuerpo -->
+</body>
+</html>
+"""
